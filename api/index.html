@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tim's UCI Cycling Coach</title>
+<style>
+:root {
+  --black: #0E0F0D; --asphalt: #1C1E1A; --gravel: #2E3029;
+  --mist: #8A9080; --fog: #C4CBB8; --white: #F2F4EE;
+  --orange: #E8500A; --orange-lo: #3A1A08; --orange-hi: #FF7A40;
+  --green: #4CAF7D; --green-lo: #0D2B1C;
+  --yellow: #E8C30A; --yellow-lo: #2E2700;
+  --red: #E84040; --red-lo: #2E0A0A;
+  --strava: #FC4C02; --r: 8px;
+  --font-head: Georgia, serif; --font-body: 'Helvetica Neue', Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--black); color: var(--white); font-family: var(--font-body); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+
+#loading { position: fixed; inset: 0; background: var(--black); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 9999; }
+#loading p { color: var(--mist); font-size: 13px; }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--gravel); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+.app-header { background: var(--asphalt); border-bottom: 1px solid var(--gravel); padding: 0 1.25rem; display: flex; align-items: center; gap: 12px; height: 56px; position: sticky; top: 0; z-index: 100; }
+.app-header h1 { font-family: var(--font-head); font-size: 17px; font-weight: normal; letter-spacing: -0.2px; }
+.app-header .sub { font-size: 11px; color: var(--mist); display: none; }
+@media (min-width: 500px) { .app-header .sub { display: block; } }
+.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.strava-pill { background: var(--strava); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: none; align-items: center; gap: 5px; }
+.sync-btn { background: var(--gravel); color: var(--fog); font-size: 12px; padding: 5px 10px; border-radius: var(--r); border: 1px solid #3E4239; cursor: pointer; }
+.sync-btn:hover { background: #3E4239; }
+
+.app-nav { background: var(--asphalt); border-bottom: 1px solid var(--gravel); display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.app-nav::-webkit-scrollbar { display: none; }
+.nav-tab { flex: none; padding: 12px 16px; font-size: 13px; color: var(--mist); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
+.nav-tab.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 600; }
+.nav-tab:hover:not(.active) { color: var(--fog); }
+
+.panel { display: none; padding: 1.25rem; max-width: 720px; margin: 0 auto; width: 100%; }
+.panel.active { display: block; }
+#coach.panel { padding: 0; max-width: 100%; }
+#coach.panel.active { display: flex; flex-direction: column; height: calc(100vh - 110px); }
+
+.slabel { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mist); margin-bottom: 0.75rem; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 1.25rem; }
+.card { background: var(--asphalt); border: 1px solid var(--gravel); border-radius: var(--r); padding: 0.85rem 1rem; }
+.card .lbl { font-size: 11px; color: var(--mist); margin-bottom: 4px; }
+.card .val { font-size: 22px; font-weight: 700; line-height: 1.1; }
+.card .sub { font-size: 11px; color: var(--mist); margin-top: 3px; }
+.c-orange { color: var(--orange); } .c-green { color: var(--green); } .c-yellow { color: var(--yellow); }
+
+.box { border-radius: var(--r); padding: 0.85rem 1rem; font-size: 13px; line-height: 1.6; margin-bottom: 1rem; }
+.box-green { background: var(--green-lo); border: 1px solid #1A4A30; color: #85DBA8; }
+.box-orange { background: var(--orange-lo); border: 1px solid #5A2010; color: #FFB085; }
+.box-yellow { background: var(--yellow-lo); border: 1px solid #4A3F00; color: #E8D070; }
+.box-red { background: var(--red-lo); border: 1px solid #5A1010; color: #FF8585; }
+
+.prog-wrap { margin-bottom: 0.85rem; }
+.prog-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: var(--fog); }
+.prog-bg { height: 6px; background: var(--gravel); border-radius: 20px; overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 20px; }
+
+.tl { margin-bottom: 1.25rem; }
+.tl-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
+.tl-row:last-child { border-bottom: none; }
+.tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.tl-date { color: var(--mist); width: 100px; flex-shrink: 0; font-size: 12px; }
+.tl-text { flex: 1; color: var(--fog); line-height: 1.5; }
+.tl-text strong { color: var(--white); }
+.tl-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+
+.ride-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
+.ride-row:last-child { border-bottom: none; }
+.rdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.rinfo { flex: 1; min-width: 0; }
+.rname { font-weight: 600; font-size: 13px; }
+.rmeta { color: var(--mist); font-size: 11px; margin-top: 1px; }
+.rstat { text-align: right; flex-shrink: 0; }
+.rstat .big { font-weight: 600; }
+.rstat .sm { font-size: 11px; color: var(--mist); }
+.tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 5px; }
+.tg { background: var(--green-lo); color: var(--green); }
+.to { background: var(--orange-lo); color: var(--orange-hi); }
+
+.wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 1rem; }
+.dc { border-radius: var(--r); border: 1px solid var(--gravel); padding: 8px 4px; text-align: center; }
+.dc.indoor { border-style: dashed; }
+.dc .dn { font-size: 10px; color: var(--mist); margin-bottom: 4px; font-weight: 600; }
+.dc .dt { font-size: 10px; font-weight: 700; margin-bottom: 2px; line-height: 1.3; }
+.dc .dl { font-size: 9px; color: var(--mist); line-height: 1.3; }
+.d-rest { background: var(--asphalt); }
+.d-easy { background: #0D2B1C; border-color: #1A4A30; } .d-easy .dt { color: var(--green); }
+.d-thresh { background: #2A1A00; border-color: #4A3000; } .d-thresh .dt { color: var(--yellow); }
+.d-social { background: #0A1830; border-color: #152A50; } .d-social .dt { color: #6BA3E8; }
+.d-fatigue { background: #1E0A00; border-color: #3A1500; } .d-fatigue .dt { color: var(--orange-hi); }
+.d-long { background: #200800; border-color: #5A1A00; } .d-long .dt { color: var(--orange); }
+
+.zrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
+.zrow:last-child { border-bottom: none; }
+.zdot { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+.zname { font-weight: 600; width: 130px; font-size: 12px; }
+.zrange { flex: 1; color: var(--fog); font-size: 12px; }
+.znote { font-size: 11px; color: var(--mist); text-align: right; }
+
+.chat-msgs { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; width: 100%; }
+.msg { display: flex; gap: 10px; align-items: flex-start; max-width: 85%; }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+.mav { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+.msg.coach .mav { background: var(--orange-lo); color: var(--orange-hi); border: 1px solid #5A2010; }
+.msg.user .mav { background: var(--strava); color: #fff; }
+.mbub { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+.msg.coach .mbub { background: var(--asphalt); color: var(--fog); border: 1px solid var(--gravel); border-radius: 2px 14px 14px 14px; }
+.msg.user .mbub { background: var(--orange-lo); color: #FFB085; border: 1px solid #5A2010; border-radius: 14px 2px 14px 14px; }
+.typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
+.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--mist); animation: bounce 1.2s infinite; }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+
+.chat-foot { border-top: 1px solid var(--gravel); background: var(--asphalt); padding: 1rem; flex-shrink: 0; }
+.qps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; max-width: 720px; margin-left: auto; margin-right: auto; }
+.qp { padding: 5px 11px; border-radius: 20px; border: 1px solid var(--gravel); background: var(--asphalt); color: var(--mist); font-size: 12px; cursor: pointer; }
+.qp:hover { border-color: var(--orange); color: var(--orange-hi); }
+.irow { display: flex; gap: 8px; max-width: 720px; margin: 0 auto; }
+.cinput { flex: 1; background: var(--gravel); border: 1px solid #3E4239; border-radius: var(--r); padding: 10px 14px; color: var(--white); font-size: 14px; font-family: var(--font-body); outline: none; resize: none; min-height: 44px; max-height: 120px; }
+.cinput:focus { border-color: var(--orange); }
+.sbtn { background: var(--orange); color: #fff; border: none; border-radius: var(--r); padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; align-self: flex-end; }
+.sbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+@media (max-width: 500px) { .panel { padding: 1rem; } .cards { grid-template-columns: repeat(2,1fr); } .wk { gap: 4px; } .dc { padding: 6px 2px; } }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><p>Loading your coach...</p></div>
+
+<div id="app">
+  <header class="app-header">
+    <div>
+      <h1>Tim's UCI Coach</h1>
+      <div class="sub">Amy's Gran Fondo · Sep 2026 · UCI Worlds France · Aug 2027</div>
+    </div>
+    <div class="header-right">
+      <div class="strava-pill" id="strava-pill">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+        Strava live
+      </div>
+      <button class="sync-btn" id="sync-btn" onclick="syncStrava()">↻ Sync Strava</button>
+    </div>
+  </header>
+
+  <nav class="app-nav">
+    <button class="nav-tab active" onclick="show('dashboard',this)">Dashboard</button>
+    <button class="nav-tab" onclick="show('rides',this)">Rides</button>
+    <button class="nav-tab" onclick="show('week',this)">This week</button>
+    <button class="nav-tab" onclick="show('zones',this)">Zones</button>
+    <button class="nav-tab" onclick="show('course',this)">Amy's course</button>
+    <button class="nav-tab" onclick="show('coach',this)">Ask coach</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="panel active">
+    <div class="box box-green">
+      <strong>You're on track, Tim.</strong> Your 107 km ride on 5 Jul (avg 131 bpm, 22 PRs including Clintons Rd full) shows your aerobic base is solid. Key focus: build sustained threshold power and practise climbing on tired legs.
+    </div>
+    <p class="slabel">Your numbers</p>
+    <div class="cards">
+      <div class="card"><div class="lbl">Est. FTP</div><div class="val c-orange">~215 W</div><div class="sub">↑ from 210 W</div></div>
+      <div class="card"><div class="lbl">W/kg</div><div class="val">2.56</div><div class="sub">Target: 3.0</div></div>
+      <div class="card"><div class="lbl">Best 100K</div><div class="val c-green">5h 8m</div><div class="sub">5 Jul — PB</div></div>
+      <div class="card"><div class="lbl">Days to Amy's</div><div class="val c-yellow" id="dq">—</div><div class="sub">13 Sep 2026</div></div>
+      <div class="card"><div class="lbl">Days to Worlds</div><div class="val" id="dw">—</div><div class="sub">Aug 2027, France</div></div>
+      <div class="card"><div class="lbl">Target time</div><div class="val c-orange">4h 30m</div><div class="sub">Top 25%, 55–59 M</div></div>
+    </div>
+    <p class="slabel">Qualifier readiness</p>
+    <div class="prog-wrap"><div class="prog-label"><span>Aerobic base</span><span>75%</span></div><div class="prog-bg"><div class="prog-fill" style="width:75%;background:var(--green)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Threshold power</span><span>42%</span></div><div class="prog-bg"><div class="prog-fill" style="width:42%;background:var(--yellow)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Fatigue climbing (Climb 2 sim)</span><span>35%</span></div><div class="prog-bg"><div class="prog-fill" style="width:35%;background:var(--yellow)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Gran fondo race pace 122 km</span><span>30%</span></div><div class="prog-bg"><div class="prog-fill" style="width:30%;background:var(--orange)"></div></div></div>
+    <p class="slabel" style="margin-top:1.25rem">Road to France</p>
+    <div class="tl">
+      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Now–Aug 2026</div><div class="tl-text"><strong>Base + build:</strong> Weekly plan, long rides to 120+ km, 1,800 m climbing. FTP 210→235 W.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Now</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">Aug 2026</div><div class="tl-text"><strong>Sharpen + taper:</strong> Race simulation at Amy's pace, 2-week taper, nail nutrition.</div><div class="tl-badge" style="background:var(--yellow-lo);color:var(--yellow)">Sharpen</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">13 Sep 2026</div><div class="tl-text"><strong>Amy's Gran Fondo, Lorne.</strong> Execute pacing plan. Qualify for UCI Worlds!</div><div class="tl-badge" style="background:var(--orange-lo);color:var(--orange-hi)">Race</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:#6BA3E8"></div><div class="tl-date">Oct–Dec 2026</div><div class="tl-text"><strong>Off-season reset:</strong> Recovery, gym strength, maintain base.</div><div class="tl-badge" style="background:#0A1830;color:#6BA3E8">Reset</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Jan–Jul 2027</div><div class="tl-text"><strong>Worlds build:</strong> VO2max blocks, FTP→250+ W (3.0 W/kg), recon French course.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Build</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--strava)"></div><div class="tl-date">Aug 2027</div><div class="tl-text"><strong>UCI Worlds — France.</strong> All the hard work. Enjoy every kilometre. 🇫🇷</div><div class="tl-badge" style="background:#3A1000;color:#FC7C42">Race day</div></div>
+    </div>
+  </div>
+
+  <!-- RIDES -->
+  <div id="rides" class="panel">
+    <p class="slabel">Recent Strava rides</p>
+    <div id="rides-list"><p style="color:var(--mist);font-size:13px">Click ↻ Sync Strava in the top right to load your rides.</p></div>
+    <div id="rides-note" class="box box-orange" style="display:none"></div>
+  </div>
+
+  <!-- WEEK -->
+  <div id="week" class="panel">
+    <p class="slabel">Your training week — base phase</p>
+    <div class="wk">
+      <div class="dc d-rest"><div class="dn">Mon</div><div class="dt" style="color:var(--mist)">Rest</div><div class="dl">Off/stretch</div></div>
+      <div class="dc d-easy indoor"><div class="dn">Tue 🏠</div><div class="dt">Rollers Z2</div><div class="dl">90 min easy</div></div>
+      <div class="dc d-thresh indoor"><div class="dn">Wed 🏠</div><div class="dt">Rollers Z4</div><div class="dl">3×12 min</div></div>
+      <div class="dc d-easy"><div class="dn">Thu</div><div class="dt">Recovery</div><div class="dl">60 min Z1</div></div>
+      <div class="dc d-social"><div class="dn">Fri</div><div class="dt">Social</div><div class="dl">2–3 h group</div></div>
+      <div class="dc d-fatigue"><div class="dn">Sat</div><div class="dt">Fatigue climbs</div><div class="dl">2 h outdoors</div></div>
+      <div class="dc d-long"><div class="dn">Sun</div><div class="dt">Long ride</div><div class="dl">4.5–5.5 h</div></div>
+    </div>
+    <p class="slabel">Day by day</p>
+    <div class="tl">
+      <div class="tl-row"><div class="tl-dot" style="background:var(--gravel)"></div><div class="tl-date">Mon — Rest</div><div class="tl-text">Full off day. Stretch, foam roll. Non-negotiable masters recovery after Sunday.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Tue — Rollers</div><div class="tl-text"><strong>90 min Z2.</strong> HR under 135 bpm (140 indoors), 85–90 rpm. Fan on. No coasting.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">Wed — Rollers</div><div class="tl-text"><strong>3×12 min threshold.</strong> Warm up 15 min. 158–168 bpm (155–165 indoors), 70–75 rpm big gear. 5 min easy between. Fan essential.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Thu — Outdoors</div><div class="tl-text"><strong>60 min Z1 recovery.</strong> HR under 125 bpm, flat roads. Eltham or Diamond Creek.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:#6BA3E8"></div><div class="tl-date">Fri — Social</div><div class="tl-text"><strong>2–3 h group ride</strong> with at least one real climb — KG hills, Wattle Glen, Hurstbridge. Pre-loads fatigue for Saturday intentionally.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--orange-hi)"></div><div class="tl-date">Sat — Outdoors</div><div class="tl-text"><strong>Fatigue climbing.</strong> 45–60 min easy, then 3×8 min Z4 on Clintons Rd or Broad Gully, only 3 min recovery. Simulates Climb 2 at Amy's on tired legs.</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">Sun — Long ride</div><div class="tl-text"><strong>4.5–5.5 h.</strong> Build to 120–130 km, 1,500–1,800 m climbing. Structure like Amy's: big climb early, flat Z2 recovery, second climb when fatigued. Eat every 25 min.</div></div>
+    </div>
+    <div class="box box-orange"><strong>~530 TSS/week.</strong> Saturday fatigue climbing is your most race-specific session — protect it. Rollers Tue/Wed frees your mornings without losing training value.</div>
+  </div>
+
+  <!-- ZONES -->
+  <div id="zones" class="panel">
+    <div class="box box-yellow">Estimated from your Strava HR data. Max HR 176 bpm (Clintons Rd). To get a precise FTP: 20-min all-out effort on Main Road TT segment, take 95% of average power.</div>
+    <p class="slabel">Training zones — est. 215 W FTP · max HR 176</p>
+    <div style="margin-bottom:1.25rem">
+      <div class="zrow"><div class="zdot" style="background:#4CAF7D"></div><div class="zname">Z1 — Recovery</div><div class="zrange">&lt;118 W · &lt;130 bpm</div><div class="znote">Thu recovery</div></div>
+      <div class="zrow"><div class="zdot" style="background:#2D9B6A"></div><div class="zname">Z2 — Endurance</div><div class="zrange">118–161 W · 130–145 bpm</div><div class="znote">Tue rollers, Sun long</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E8C30A"></div><div class="zname">Z3 — Tempo</div><div class="zrange">162–193 W · 145–158 bpm</div><div class="znote">Fri social pace</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E8A20A"></div><div class="zname">Z4 — Threshold</div><div class="zrange">194–225 W · 158–168 bpm</div><div class="znote">Wed rollers, Sat climbs</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E86040"></div><div class="zname">Z5 — VO2max</div><div class="zrange">226–258 W · 168–176 bpm</div><div class="znote">Hard KOM efforts</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E84040"></div><div class="zname">Z6 — Anaerobic</div><div class="zrange">&gt;258 W · max</div><div class="znote">Sprint segments</div></div>
+    </div>
+    <div class="box box-orange"><strong>Roller adjustment:</strong> HR runs 5–8 bpm high indoors. Z2 target &lt;140 bpm. Threshold target 155–165 bpm. Trust effort over number in a warm room.</div>
+    <p class="slabel" style="margin-top:1.25rem">Amy's pacing targets (est. 215 W FTP)</p>
+    <div class="zrow"><div class="zdot" style="background:var(--yellow)"></div><div class="zname">Climb 1 (fresh)</div><div class="zrange">172–183 W · 80–85% FTP</div><div class="znote">Don't blow up early</div></div>
+    <div class="zrow"><div class="zdot" style="background:var(--green)"></div><div class="zname">Descent + GOR</div><div class="zrange">122–150 W · 57–70%</div><div class="znote">Recover, eat, drink</div></div>
+    <div class="zrow"><div class="zdot" style="background:#6BA3E8"></div><div class="zname">Coastal flats</div><div class="zrange">150–172 W · 70–80%</div><div class="znote">Steady, stay aero</div></div>
+    <div class="zrow"><div class="zdot" style="background:var(--orange)"></div><div class="zname">Climb 2 (tired)</div><div class="zrange">183–194 W · 85–90%</div><div class="znote">The qualifier — go!</div></div>
+    <div class="zrow"><div class="zdot" style="background:var(--green)"></div><div class="zname">Average target</div><div class="zrange">161–172 W · 75–80%</div><div class="znote">Top 25% qualifier pace</div></div>
+  </div>
+
+  <!-- COURSE -->
+  <div id="course" class="panel">
+    <p class="slabel">Amy's Gran Fondo · 13 Sep 2026 · Lorne, Victoria</p>
+    <div class="cards">
+      <div class="card"><div class="lbl">Distance</div><div class="val">122 km</div><div class="sub">Closed roads</div></div>
+      <div class="card"><div class="lbl">Elevation</div><div class="val c-yellow">1,869 m</div><div class="sub">2 major climbs</div></div>
+      <div class="card"><div class="lbl">Peak altitude</div><div class="val">569 m</div><div class="sub">Before GOR descent</div></div>
+      <div class="card"><div class="lbl">Qualifier</div><div class="val c-green">Top 25%</div><div class="sub">55–59 M age group</div></div>
+      <div class="card"><div class="lbl">Target time</div><div class="val c-orange">4h 30m</div><div class="sub">Safe qualifier</div></div>
+      <div class="card"><div class="lbl">Stretch goal</div><div class="val">4h 15m</div><div class="sub">Comfortable margin</div></div>
+    </div>
+    <div class="box box-red"><strong>Race-deciding moment:</strong> Climb 2 (Forrest → Mt Sabine) arrives after 70+ km of hard riding. Most age-groupers blow up here. Your Saturday fatigue-climbing sessions are built for this exact moment.</div>
+    <p class="slabel">Course breakdown</p>
+    <div class="tl">
+      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">0–~30 km</div><div class="tl-text"><strong>Climb 1 — Otway Ranges.</strong> Fresh legs from Lorne. Peaks at 569 m. Ride at 80–85% FTP, seated, 75–80 rpm. Resist the adrenaline.</div><div class="tl-badge" style="background:var(--yellow-lo);color:var(--yellow)">~600 m</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">~30–50 km</div><div class="tl-text"><strong>Descent + Great Ocean Road.</strong> Recover hard. Eat, drink, get HR to Z2. Critical refuelling window.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Recovery</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:#6BA3E8"></div><div class="tl-date">~50–75 km</div><div class="tl-text"><strong>Coastal flats — Skenes Creek.</strong> Z2–Z3 pace, stay aero, keep eating. Do not push — save it for Climb 2.</div><div class="tl-badge" style="background:#0A1830;color:#6BA3E8">Save legs</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">~75–110 km</div><div class="tl-text"><strong>Climb 2 — Forrest → Mt Sabine.</strong> The qualifier. Legs already tired. 85–90% FTP. Your Saturday sessions were built for this.</div><div class="tl-badge" style="background:var(--orange-lo);color:var(--orange-hi)">~1,200 m</div></div>
+      <div class="tl-row"><div class="tl-dot" style="background:var(--strava)"></div><div class="tl-date">~110–122 km</div><div class="tl-text"><strong>Finish — Lorne main street.</strong> Empty the tank in the last 5 km. You've earned it. 🏁</div><div class="tl-badge" style="background:#3A1000;color:#FC7C42">Race!</div></div>
+    </div>
+  </div>
+
+  <!-- COACH -->
+  <div id="coach" class="panel">
+    <div class="chat-msgs" id="chat-msgs">
+      <div class="msg coach"><div class="mav">🚴</div><div class="mbub">G'day Tim! Fully loaded with your training plan, Amy's course details, and your Strava history. That 107 km ride last Saturday was a ripper — 22 PRs and controlled HR throughout. What do you want to work on?</div></div>
+    </div>
+    <div class="chat-foot">
+      <div class="qps">
+        <button class="qp" onclick="qa('Am I on track to qualify at Amy\'s Gran Fondo?')">Am I on track?</button>
+        <button class="qp" onclick="qa('How do I pace Climb 1 without blowing up before Climb 2?')">Climb 1 pacing</button>
+        <button class="qp" onclick="qa('What should I eat and drink during Amy\'s Gran Fondo?')">Race nutrition</button>
+        <button class="qp" onclick="qa('My Wednesday roller session felt too hard — how do I adjust for indoor heat?')">Roller HR drift</button>
+        <button class="qp" onclick="qa('How should I taper the 2 weeks before Amy\'s?')">Pre-race taper</button>
+        <button class="qp" onclick="qa('Should I get a power meter before Amy\'s?')">Power meter?</button>
+      </div>
+      <div class="irow">
+        <textarea class="cinput" id="cinput" placeholder="Ask your coach anything..." rows="1"></textarea>
+        <button class="sbtn" id="sbtn" onclick="send()">Send</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SYSTEM = `You are an expert UCI cycling coach for Tim Dugan, male masters cyclist, Melbourne Victoria Australia, 55-59 age group, 84 kg.
+
+STRAVA PROFILE:
+- Rides: Kangaroo Ground, Eltham, Diamond Creek, Clintons Rd, Broad Gully, Nankervis Rd, Strathewen, Wilson Rd, Cherry Tree Rd
+- Est FTP: ~215W (~2.56 W/kg). No power meter, HR only. Max HR 176 bpm (Clintons Rd).
+- Best 100K: 5h 8min (5 Jul 2026) — 107km, 1286m, avg HR 131bpm, 22 PRs incl Clintons Rd full and Broad Gully
+- Longest ride: 142.5km, 5h 18min, 1328m (2 May 2026)
+- Regular indoor roller sessions. New bike May 2026.
+
+WEEKLY PLAN:
+- Mon: Rest (non-negotiable)
+- Tue: ROLLERS — 90min Z2, HR <135bpm (<140 indoors), 85-90rpm, fan essential
+- Wed: ROLLERS — 3x12min Z4 threshold, 158-168bpm (155-165 indoors), 70-75rpm big gear, 5min easy between, fan essential
+- Thu: Outdoors easy Z1, 60min, HR <125bpm, flat roads (Eltham/Diamond Creek)
+- Fri: Social group ride outdoors, 2-3h, at least one real climb (KG hills/Wattle Glen/Hurstbridge)
+- Sat: OUTDOORS fatigue climbing — 45-60min easy then 3x8min Z4 on Clintons Rd or Broad Gully, only 3min recovery. Simulates Amy's Climb 2 on tired legs.
+- Sun: OUTDOORS long ride — 4.5-5.5h, build to 120-130km with 1500-1800m climbing. Structure like Amy's: big climb early, flat Z2 recovery, second climb when fatigued. Eat every 25min.
+- Weekly TSS: ~530
+
+GOALS:
+1. Qualify at Amy's Gran Fondo, Lorne Victoria, 13 Sep 2026. Top 25% in 55-59M. Target 4h15-4h30min.
+2. UCI Gran Fondo Worlds, France, Aug 2027, 55-59M.
+
+AMY'S COURSE (122km, 1869m):
+- Climb 1 (0-30km): Otways from Lorne, peaks 569m. Fresh legs. Ride 80-85% FTP (172-183W est), seated 75-80rpm.
+- Middle (30-75km): Descent to GOR, coastal flats near Skenes Creek. Recovery and nutrition window.
+- Climb 2 (75-110km): Forrest to Mt Sabine on tired legs. Race-deciding. Target 85-90% FTP (183-194W est).
+- Finish: Lorne main street.
+
+ZONES (215W FTP, max HR 176):
+Z1 <118W <130bpm | Z2 118-161W 130-145bpm | Z3 162-193W 145-158bpm | Z4 194-225W 158-168bpm | Z5 226-258W 168-176bpm | Z6 >258W
+
+Roller HR adjust: subtract 5-8bpm from all targets indoors. Fan essential.
+Specific, practical, encouraging. Reference local segments. Australian casual tone.`;
+
+let history = [];
+let liveRides = '';
+
+window.addEventListener('load', () => {
+  document.getElementById('loading').style.display = 'none';
+  updateCountdowns();
+  syncStrava();
+});
+
+function updateCountdowns() {
+  const now = new Date();
+  document.getElementById('dq').textContent = Math.ceil((new Date('2026-09-13') - now) / 86400000);
+  document.getElementById('dw').textContent = Math.ceil((new Date('2027-08-24') - now) / 86400000);
+}
+
+function show(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  btn.classList.add('active');
+}
+
+async function syncStrava() {
+  const btn = document.getElementById('sync-btn');
+  btn.textContent = '↻ Syncing...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/strava');
+    const data = await r.json();
+    if (Array.isArray(data) && data.length > 0) {
+      renderRides(data);
+      liveRides = '\n\nLATEST STRAVA RIDES:\n' + data.slice(0,5).map(a => {
+        const km = (a.distance/1000).toFixed(1);
+        const date = new Date(a.start_date_local).toLocaleDateString('en-AU');
+        const isIndoor = a.distance === 0;
+        if (isIndoor) return `${date}: Indoor ${Math.round(a.moving_time/60)}min${a.average_cadence ? ' cadence '+a.average_cadence.toFixed(0)+'rpm' : ''}`;
+        return `${date}: ${km}km ${Math.round(a.total_elevation_gain)}m elev ${Math.round(a.moving_time/60)}min${a.average_heartrate ? ' avg '+Math.round(a.average_heartrate)+'bpm' : ''}${a.pr_count > 0 ? ' '+a.pr_count+' PRs' : ''}`;
+      }).join('\n');
+      document.getElementById('strava-pill').style.display = 'flex';
+      btn.textContent = '✓ Synced';
+      setTimeout(() => { btn.textContent = '↻ Sync Strava'; btn.disabled = false; }, 3000);
+    } else {
+      btn.textContent = '↻ Sync Strava';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = '↻ Sync Strava';
+    btn.disabled = false;
+  }
+}
+
+function renderRides(rides) {
+  const list = document.getElementById('rides-list');
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0, 10);
+  if (!cycling.length) return;
+  list.innerHTML = cycling.map(r => {
+    const km = (r.distance/1000).toFixed(1);
+    const mins = Math.round(r.moving_time/60);
+    const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
+    const date = new Date(r.start_date_local).toLocaleDateString('en-AU', {weekday:'short',day:'numeric',month:'short'});
+    const isIndoor = r.distance === 0;
+    const isLong = r.distance > 80000;
+    return `<div class="ride-row">
+      <div class="rdot" style="background:${isIndoor?'var(--mist)':isLong?'var(--orange)':'var(--green)'}"></div>
+      <div class="rinfo">
+        <div class="rname">${r.name}${isIndoor?'<span class="tag to">indoor</span>':''}${isLong?'<span class="tag tg">long</span>':''}</div>
+        <div class="rmeta">${date}${isIndoor?' · indoor roller':' · '+km+' km · '+Math.round(r.total_elevation_gain)+' m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''}</div>
+      </div>
+      <div class="rstat">
+        <div class="big">${isIndoor?Math.round(r.moving_time/60)+' min':duration}</div>
+        <div class="sm">${r.average_heartrate?'avg '+Math.round(r.average_heartrate)+' bpm':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const note = document.getElementById('rides-note');
+  note.style.display = 'block';
+  note.innerHTML = '<strong>Coach\'s tip:</strong> Tell the coach how any of these sessions felt and I\'ll adjust next week\'s plan based on your recovery.';
+}
+
+async function send() {
+  const inp = document.getElementById('cinput');
+  const msg = inp.value.trim();
+  if (!msg) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  addMsg('user', msg);
+  document.getElementById('sbtn').disabled = true;
+  inp.disabled = true;
+  const t = addTyping();
+  history.push({ role: 'user', content: msg });
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM + liveRides, messages: history })
+    });
+    const d = await r.json();
+    t.remove();
+    if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+    const reply = d.content.map(b => b.text||'').join('');
+    history.push({ role: 'assistant', content: reply });
+    addMsg('coach', reply);
+  } catch(e) {
+    t.remove();
+    addMsg('coach', '⚠️ ' + e.message);
+  }
+  document.getElementById('sbtn').disabled = false;
+  inp.disabled = false;
+  inp.focus();
+}
+
+function addMsg(role, text) {
+  const c = document.getElementById('chat-msgs');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.innerHTML = `<div class="mav">${role==='coach'?'🚴':'TD'}</div><div class="mbub">${text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>`;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function addTyping() {
+  const c = document.getElementById('chat-msgs');
+  const d = document.createElement('div');
+  d.className = 'msg coach';
+  d.innerHTML = '<div class="mav">🚴</div><div class="mbub"><div class="typing"><span></span><span></span><span></span></div></div>';
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function qa(q) {
+  document.getElementById('cinput').value = q;
+  show('coach', document.querySelectorAll('.nav-tab')[5]);
+  send();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const ta = document.getElementById('cinput');
+  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight,120)+'px'; });
+  ta.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
+});
+</script>
+</body>
+</html>
