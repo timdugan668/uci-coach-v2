@@ -165,17 +165,17 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="panel active">
-    <div class="box box-green">
-      <strong>You're on track, Tim.</strong> Your 107 km ride on 5 Jul (avg 131 bpm, 22 PRs including Clintons Rd full) shows your aerobic base is solid. Key focus: build sustained threshold power and practise climbing on tired legs.
+    <div class="box box-green" id="d-summary">
+      <strong>You're on track, Tim.</strong> Sync Strava to update your latest ride summary here.
     </div>
     <p class="slabel">Your numbers</p>
     <div class="cards">
-      <div class="card"><div class="lbl">Est. FTP</div><div class="val c-orange">~215 W</div><div class="sub">↑ from 210 W</div></div>
-      <div class="card"><div class="lbl">W/kg</div><div class="val">2.56</div><div class="sub">Target: 3.0</div></div>
-      <div class="card"><div class="lbl">Best 100K</div><div class="val c-green">5h 8m</div><div class="sub">5 Jul — PB</div></div>
+      <div class="card"><div class="lbl">Est. FTP</div><div class="val c-orange" id="d-ftp">~215 W</div><div class="sub" id="d-ftp-sub">Based on HR data</div></div>
+      <div class="card"><div class="lbl">W/kg</div><div class="val" id="d-wkg">2.56</div><div class="sub">Target: 3.0 W/kg</div></div>
+      <div class="card"><div class="lbl">Best long ride</div><div class="val c-green" id="d-best">4h 10m</div><div class="sub" id="d-best-sub">107 km · 1,626 m</div></div>
+      <div class="card"><div class="lbl">Last ride</div><div class="val" id="d-last">—</div><div class="sub" id="d-last-sub">Sync to update</div></div>
       <div class="card"><div class="lbl">Days to Amy's</div><div class="val c-yellow" id="dq">—</div><div class="sub">13 Sep 2026</div></div>
       <div class="card"><div class="lbl">Days to Worlds</div><div class="val" id="dw">—</div><div class="sub">Aug 2027, France</div></div>
-      <div class="card"><div class="lbl">Target time</div><div class="val c-orange">4h 30m</div><div class="sub">Top 25%, 55–59 M</div></div>
     </div>
     <p class="slabel">Qualifier readiness</p>
     <div class="prog-wrap"><div class="prog-label"><span>Aerobic base</span><span>75%</span></div><div class="prog-bg"><div class="prog-fill" style="width:75%;background:var(--green)"></div></div></div>
@@ -403,6 +403,57 @@ function renderRides(rides) {
   const note = document.getElementById('rides-note');
   note.style.display = 'block';
   note.innerHTML = '<strong>Coach\'s tip:</strong> Tell the coach how any of these sessions felt and I\'ll adjust next week\'s plan based on your recovery.';
+  updateDashboard(rides);
+}
+
+function updateDashboard(rides) {
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride');
+  if (!cycling.length) return;
+
+  // Last ride
+  const last = cycling[0];
+  const lastKm = (last.distance/1000).toFixed(1);
+  const lastMins = Math.round(last.moving_time/60);
+  const lastH = Math.floor(lastMins/60);
+  const lastM = lastMins % 60;
+  const lastDate = new Date(last.start_date_local).toLocaleDateString('en-AU', {day:'numeric',month:'short'});
+  const isIndoor = last.distance === 0;
+  document.getElementById('d-last').textContent = isIndoor ? lastMins+'m indoor' : lastH+'h '+lastM+'m';
+  document.getElementById('d-last-sub').textContent = isIndoor ? 'Roller session · '+lastDate : lastKm+' km · '+Math.round(last.total_elevation_gain)+'m · '+lastDate;
+
+  // Best long outdoor ride by moving time
+  const outdoor = cycling.filter(r => r.distance > 50000);
+  if (outdoor.length) {
+    const best = outdoor.reduce((a,b) => a.distance > b.distance ? a : b);
+    const bestMins = Math.round(best.moving_time/60);
+    const bestH = Math.floor(bestMins/60);
+    const bestM = bestMins % 60;
+    const bestKm = (best.distance/1000).toFixed(0);
+    const bestElev = Math.round(best.total_elevation_gain);
+    document.getElementById('d-best').textContent = bestH+'h '+bestM+'m';
+    document.getElementById('d-best-sub').textContent = bestKm+' km · '+bestElev+' m elev';
+  }
+
+  // Est FTP from max HR seen in recent rides
+  const maxHR = Math.max(...cycling.filter(r=>r.max_heartrate).map(r=>r.max_heartrate));
+  if (maxHR > 0) {
+    const estFTP = Math.round(maxHR * 0.76 * 1.12); // rough estimate
+    const wkg = (estFTP / 84).toFixed(2);
+    document.getElementById('d-ftp').textContent = '~'+estFTP+' W';
+    document.getElementById('d-ftp-sub').textContent = 'Est. from max HR '+maxHR+' bpm';
+    document.getElementById('d-wkg').textContent = wkg;
+  }
+
+  // Update summary box
+  const summary = document.getElementById('d-summary');
+  const lastKmFull = (last.distance/1000).toFixed(1);
+  const prs = last.pr_count > 0 ? ', '+last.pr_count+' PRs' : '';
+  const avgHR = last.average_heartrate ? ', avg '+Math.round(last.average_heartrate)+' bpm' : '';
+  if (!isIndoor) {
+    summary.innerHTML = '<strong>Latest ride loaded.</strong> '+lastDate+': '+lastKmFull+' km, '+Math.round(last.total_elevation_gain)+'m elevation, '+lastH+'h '+lastM+'min'+avgHR+prs+'. Keep at it — Amy\'s is '+document.getElementById("dq").textContent+' days away!';
+  } else {
+    summary.innerHTML = '<strong>Latest session loaded.</strong> Roller session on '+lastDate+' — '+lastMins+' min. Good work keeping the base ticking over.';
+  }
 }
 
 async function send() {
