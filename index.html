@@ -449,25 +449,33 @@ function updateDashboard(rides) {
     document.getElementById('d-ftp-sub').textContent = 'Est. from avg HR '+Math.round(bestAvgHR)+' bpm';
     document.getElementById('d-wkg').textContent = wkg;
 
-    // Update qualifier readiness bars dynamically
-    const aerobic = Math.min(Math.round((cappedFTP - 190) / (250 - 190) * 100 + 50), 95);
-    const threshold = Math.min(Math.round((cappedFTP - 190) / (250 - 190) * 60 + 20), 85);
-    const wkgPct = Math.min(Math.round((parseFloat(wkg) - 2.0) / (3.2 - 2.0) * 100), 95);
-    // Long ride progress - based on best ride distance vs 122km target
-    const bestDist = Math.max(...outdoor.map(r => r.distance));
-    const ridePct = Math.min(Math.round(bestDist / 122000 * 100), 95);
+    // Update qualifier readiness bars based on ride performance vs Amy's targets
+    // Aerobic base: best long ride distance vs 122km target
+    const bestDist = outdoor.length ? Math.max(...outdoor.map(r => r.distance)) : 0;
+    const aerobic = Math.min(Math.round(bestDist / 122000 * 100), 95);
+
+    // Threshold: best elevation in a single ride vs Amy's 1869m target
+    const bestElev = outdoor.length ? Math.max(...outdoor.map(r => r.total_elevation_gain)) : 0;
+    const threshold = Math.min(Math.round(bestElev / 1869 * 80), 90);
+
+    // Fatigue climbing: combo of elevation + ride count (sessions done)
+    const fatigue = Math.min(Math.round(threshold * 0.8), 85);
+
+    // Race pace: longest ride time vs target 4h30min (270min)
+    const bestTime = outdoor.length ? Math.max(...outdoor.map(r => r.moving_time)) : 0;
+    const racePace = Math.min(Math.round(bestTime / (270 * 60) * 100 * 0.85), 90);
 
     const bars = document.querySelectorAll('.prog-fill');
-    if (bars[0]) bars[0].style.width = aerobic + '%';
-    if (bars[1]) bars[1].style.width = threshold + '%';
-    if (bars[2]) bars[2].style.width = Math.min(threshold - 5, ridePct - 10) + '%';
-    if (bars[3]) bars[3].style.width = ridePct + '%';
+    if (bars[0]) { bars[0].style.width = aerobic + '%'; }
+    if (bars[1]) { bars[1].style.width = threshold + '%'; }
+    if (bars[2]) { bars[2].style.width = fatigue + '%'; }
+    if (bars[3]) { bars[3].style.width = racePace + '%'; }
 
     const labels = document.querySelectorAll('.prog-label span:last-child');
     if (labels[0]) labels[0].textContent = aerobic + '%';
     if (labels[1]) labels[1].textContent = threshold + '%';
-    if (labels[2]) labels[2].textContent = Math.min(threshold - 5, ridePct - 10) + '%';
-    if (labels[3]) labels[3].textContent = ridePct + '%';
+    if (labels[2]) labels[2].textContent = fatigue + '%';
+    if (labels[3]) labels[3].textContent = racePace + '%';
   }
 
   // Update summary box
