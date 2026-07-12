@@ -434,20 +434,19 @@ function updateDashboard(rides) {
     document.getElementById('d-best-sub').textContent = bestKm+' km · '+bestElev+' m elev';
   }
 
-  // Est FTP from best avg HR over long rides
-  // Use rides > 90 min, take highest avg HR as proxy for threshold
-  const longRides = cycling.filter(r => r.moving_time > 5400 && r.average_heartrate > 0);
-  if (longRides.length) {
-    const bestAvgHR = Math.max(...longRides.map(r => r.average_heartrate));
-    // Threshold HR ~ best sustained avg HR over long effort
-    // FTP estimate: at threshold HR (bestAvgHR) Tim produces ~215W
-    // Scale linearly from known calibration point: 131bpm = ~150W, 145bpm = ~215W
-    const estFTP = Math.round(150 + (bestAvgHR - 131) * (215 - 150) / (145 - 131));
-    const cappedFTP = Math.min(Math.max(estFTP, 190), 260); // sanity check 190-260W range
-    const wkg = (cappedFTP / 84).toFixed(2);
-    document.getElementById('d-ftp').textContent = '~'+cappedFTP+' W';
-    document.getElementById('d-ftp-sub').textContent = 'Est. from avg HR '+Math.round(bestAvgHR)+' bpm';
-    document.getElementById('d-wkg').textContent = wkg;
+  // Est FTP from max HR seen across all recent rides
+  // We know Tim's max HR is 176 bpm, and threshold is ~95% of max = ~167 bpm
+  // At 131 bpm avg (Z2 long ride) Tim is at ~75% FTP = ~161W → FTP ~215W
+  // Use max HR seen to scale: FTP = maxHR * 1.22 (calibrated to Tim's known data)
+  const allMaxHR = cycling.filter(r => r.max_heartrate > 0).map(r => r.max_heartrate);
+  const maxHRseen = allMaxHR.length ? Math.max(...allMaxHR) : 176;
+  const cappedFTP = Math.min(Math.max(Math.round(maxHRseen * 1.22), 200), 270);
+  const wkg = (cappedFTP / 84).toFixed(2);
+  document.getElementById('d-ftp').textContent = '~'+cappedFTP+' W';
+  document.getElementById('d-ftp-sub').textContent = 'Est. from max HR '+maxHRseen+' bpm';
+  document.getElementById('d-wkg').textContent = wkg;
+
+  if (outdoor.length) {
 
     // Update qualifier readiness bars based on ride performance vs Amy's targets
     // Aerobic base: best long ride distance vs 122km target
