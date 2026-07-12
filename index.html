@@ -434,14 +434,40 @@ function updateDashboard(rides) {
     document.getElementById('d-best-sub').textContent = bestKm+' km · '+bestElev+' m elev';
   }
 
-  // Est FTP from max HR seen in recent rides
-  const maxHR = Math.max(...cycling.filter(r=>r.max_heartrate).map(r=>r.max_heartrate));
-  if (maxHR > 0) {
-    const estFTP = Math.round(maxHR * 0.76 * 1.12); // rough estimate
-    const wkg = (estFTP / 84).toFixed(2);
-    document.getElementById('d-ftp').textContent = '~'+estFTP+' W';
-    document.getElementById('d-ftp-sub').textContent = 'Est. from max HR '+maxHR+' bpm';
+  // Est FTP from best avg HR over long rides
+  // Use rides > 90 min, take highest avg HR as proxy for threshold
+  const longRides = cycling.filter(r => r.moving_time > 5400 && r.average_heartrate > 0);
+  if (longRides.length) {
+    const bestAvgHR = Math.max(...longRides.map(r => r.average_heartrate));
+    // Threshold HR ~ best sustained avg HR over long effort
+    // FTP estimate: at threshold HR (bestAvgHR) Tim produces ~215W
+    // Scale linearly from known calibration point: 131bpm = ~150W, 145bpm = ~215W
+    const estFTP = Math.round(150 + (bestAvgHR - 131) * (215 - 150) / (145 - 131));
+    const cappedFTP = Math.min(Math.max(estFTP, 190), 260); // sanity check 190-260W range
+    const wkg = (cappedFTP / 84).toFixed(2);
+    document.getElementById('d-ftp').textContent = '~'+cappedFTP+' W';
+    document.getElementById('d-ftp-sub').textContent = 'Est. from avg HR '+Math.round(bestAvgHR)+' bpm';
     document.getElementById('d-wkg').textContent = wkg;
+
+    // Update qualifier readiness bars dynamically
+    const aerobic = Math.min(Math.round((cappedFTP - 190) / (250 - 190) * 100 + 50), 95);
+    const threshold = Math.min(Math.round((cappedFTP - 190) / (250 - 190) * 60 + 20), 85);
+    const wkgPct = Math.min(Math.round((parseFloat(wkg) - 2.0) / (3.2 - 2.0) * 100), 95);
+    // Long ride progress - based on best ride distance vs 122km target
+    const bestDist = Math.max(...outdoor.map(r => r.distance));
+    const ridePct = Math.min(Math.round(bestDist / 122000 * 100), 95);
+
+    const bars = document.querySelectorAll('.prog-fill');
+    if (bars[0]) bars[0].style.width = aerobic + '%';
+    if (bars[1]) bars[1].style.width = threshold + '%';
+    if (bars[2]) bars[2].style.width = Math.min(threshold - 5, ridePct - 10) + '%';
+    if (bars[3]) bars[3].style.width = ridePct + '%';
+
+    const labels = document.querySelectorAll('.prog-label span:last-child');
+    if (labels[0]) labels[0].textContent = aerobic + '%';
+    if (labels[1]) labels[1].textContent = threshold + '%';
+    if (labels[2]) labels[2].textContent = Math.min(threshold - 5, ridePct - 10) + '%';
+    if (labels[3]) labels[3].textContent = ridePct + '%';
   }
 
   // Update summary box
