@@ -10,153 +10,388 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="VAMIQ">
 <link rel="manifest" href="/manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
-  --black: #0E0F0D; --asphalt: #1C1E1A; --gravel: #2E3029;
-  --mist: #8A9080; --fog: #C4CBB8; --white: #F2F4EE;
-  --orange: #E8500A; --orange-lo: #3A1A08; --orange-hi: #FF7A40;
-  --green: #4CAF7D; --green-lo: #0D2B1C;
-  --yellow: #E8C30A; --yellow-lo: #2E2700;
-  --red: #E84040; --red-lo: #2E0A0A;
-  --strava: #FC4C02; --r: 8px;
-  --font-head: Georgia, serif; --font-body: 'Helvetica Neue', Arial, sans-serif;
+  --black:#0E0F0D; --asphalt:#1C1E1A; --gravel:#2E3029;
+  --mist:#8A9080; --fog:#C4CBB8; --white:#F2F4EE;
+  --orange:#E8500A; --orange-lo:#3A1A08; --orange-hi:#FF7A40;
+  --green:#4CAF7D; --green-lo:#0D2B1C;
+  --yellow:#E8C30A; --yellow-lo:#2E2700;
+  --red:#E84040; --red-lo:#2E0A0A;
+  --strava:#FC4C02; --r:8px;
+  --font-head:Georgia,serif; --font-body:'Helvetica Neue',Arial,sans-serif;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--black); color: var(--white); font-family: var(--font-body); font-size: 14px; line-height: 1.5; min-height: 100vh; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:var(--black); color:var(--white); font-family:var(--font-body); font-size:14px; line-height:1.5; min-height:100vh; }
 
-#loading { position: fixed; inset: 0; background: var(--black); display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; z-index: 9999; }
-#loading p { color: var(--mist); font-size: 13px; }
-.spinner { width: 36px; height: 36px; border: 3px solid var(--gravel); border-top-color: var(--orange); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-5px); } }
+/* ── LOADING ── */
+#loading { position:fixed; inset:0; background:var(--black); display:flex; align-items:center; justify-content:center; flex-direction:column; gap:16px; z-index:9999; }
+.vamiq-logo { font-family:var(--font-head); font-size:36px; font-weight:bold; letter-spacing:6px; color:var(--orange); }
+.vamiq-tag { font-size:12px; color:var(--mist); letter-spacing:2px; text-transform:uppercase; }
+.spinner { width:32px; height:32px; border:3px solid var(--gravel); border-top-color:var(--orange); border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
 
-#app { display: flex; flex-direction: column; min-height: 100vh; }
+/* ── AUTH SCREEN ── */
+#auth { display:none; min-height:100vh; align-items:center; justify-content:center; padding:1.5rem; }
+.auth-card { background:var(--asphalt); border:1px solid var(--gravel); border-radius:16px; padding:2rem; max-width:420px; width:100%; }
+.auth-logo { font-family:var(--font-head); font-size:28px; font-weight:bold; letter-spacing:4px; color:var(--orange); margin-bottom:4px; }
+.auth-tag { font-size:12px; color:var(--mist); margin-bottom:1.5rem; padding-bottom:1.5rem; border-bottom:1px solid var(--gravel); }
+.auth-tabs { display:flex; gap:0; margin-bottom:1.5rem; background:var(--gravel); border-radius:var(--r); padding:3px; }
+.auth-tab { flex:1; padding:8px; text-align:center; font-size:13px; font-weight:500; cursor:pointer; border-radius:6px; border:none; background:none; color:var(--mist); transition:all 0.15s; }
+.auth-tab.active { background:var(--asphalt); color:var(--white); }
+.field { margin-bottom:1rem; }
+.field label { display:block; font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--mist); margin-bottom:6px; }
+.field input { width:100%; background:var(--gravel); border:1px solid #3E4239; border-radius:var(--r); padding:10px 12px; color:var(--white); font-size:14px; outline:none; }
+.field input:focus { border-color:var(--orange); }
+.field-hint { font-size:11px; color:var(--mist); margin-top:4px; }
+.field-hint.error { color:#FF8585; }
+.field-hint.success { color:var(--green); }
+.btn-primary { width:100%; background:var(--orange); color:#fff; border:none; border-radius:var(--r); padding:12px; font-size:14px; font-weight:700; cursor:pointer; margin-top:0.5rem; }
+.btn-primary:hover { opacity:0.88; }
+.btn-primary:disabled { opacity:0.4; cursor:not-allowed; }
+.auth-divider { text-align:center; font-size:12px; color:var(--mist); margin:1rem 0; }
+.pw-rules { font-size:11px; color:var(--mist); margin-top:4px; line-height:1.6; }
+.pw-rule { display:flex; align-items:center; gap:5px; }
+.pw-rule.ok { color:var(--green); }
+.pw-rule.fail { color:var(--mist); }
 
-.app-header { background: var(--asphalt); border-bottom: 1px solid var(--gravel); padding: 0 1.25rem; display: flex; align-items: center; gap: 12px; height: 56px; position: sticky; top: 0; z-index: 100; }
-.app-header h1 { font-family: var(--font-head); font-size: 20px; font-weight: bold; letter-spacing: 2px; color: var(--orange); text-transform: uppercase; }
-.app-header .sub { font-size: 11px; color: var(--mist); display: none; }
-@media (min-width: 500px) { .app-header .sub { display: block; } }
-.header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
-.strava-pill { background: var(--strava); color: #fff; font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; display: none; align-items: center; gap: 5px; }
-.sync-btn { background: var(--gravel); color: var(--fog); font-size: 12px; padding: 5px 10px; border-radius: var(--r); border: 1px solid #3E4239; cursor: pointer; }
-.sync-btn:hover { background: #3E4239; }
+/* ── ONBOARDING ── */
+#onboarding { display:none; min-height:100vh; align-items:center; justify-content:center; padding:1.5rem; }
+.onboard-card { background:var(--asphalt); border:1px solid var(--gravel); border-radius:16px; padding:2rem; max-width:480px; width:100%; }
+.onboard-logo { font-family:var(--font-head); font-size:22px; font-weight:bold; letter-spacing:3px; color:var(--orange); margin-bottom:4px; }
+.onboard-step { font-size:11px; color:var(--mist); margin-bottom:1.5rem; padding-bottom:1.5rem; border-bottom:1px solid var(--gravel); }
+.onboard-title { font-size:18px; font-weight:600; margin-bottom:6px; }
+.onboard-desc { font-size:13px; color:var(--mist); margin-bottom:1.5rem; line-height:1.5; }
+.step-dots { display:flex; gap:6px; margin-bottom:1.5rem; }
+.dot { width:8px; height:8px; border-radius:50%; background:var(--gravel); }
+.dot.active { background:var(--orange); }
+.dot.done { background:var(--green); }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+select { width:100%; background:var(--gravel); border:1px solid #3E4239; border-radius:var(--r); padding:10px 12px; color:var(--white); font-size:14px; outline:none; }
+select:focus { border-color:var(--orange); }
+.goal-cards { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:1rem; }
+.goal-card { background:var(--gravel); border:2px solid var(--gravel); border-radius:var(--r); padding:12px; cursor:pointer; text-align:center; transition:all 0.15s; }
+.goal-card:hover { border-color:var(--mist); }
+.goal-card.selected { border-color:var(--orange); background:var(--orange-lo); }
+.goal-card .icon { font-size:24px; margin-bottom:6px; }
+.goal-card .name { font-size:12px; font-weight:600; color:var(--white); }
+.goal-card .desc { font-size:10px; color:var(--mist); margin-top:2px; }
+.btn-row { display:flex; gap:8px; margin-top:1rem; }
+.btn-back { flex:none; background:var(--gravel); color:var(--fog); border:none; border-radius:var(--r); padding:12px 18px; font-size:14px; cursor:pointer; }
+.btn-next { flex:1; background:var(--orange); color:#fff; border:none; border-radius:var(--r); padding:12px; font-size:14px; font-weight:700; cursor:pointer; }
+.btn-next:disabled { opacity:0.4; cursor:not-allowed; }
+.strava-connect { width:100%; background:var(--strava); color:#fff; border:none; border-radius:var(--r); padding:13px; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:10px; }
+.skip-btn { width:100%; background:none; border:1px solid var(--gravel); color:var(--mist); border-radius:var(--r); padding:10px; font-size:13px; cursor:pointer; }
 
-.app-nav { background: var(--asphalt); border-bottom: 1px solid var(--gravel); display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.app-nav::-webkit-scrollbar { display: none; }
-.nav-tab { flex: none; padding: 12px 16px; font-size: 13px; color: var(--mist); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; }
-.nav-tab.active { color: var(--orange); border-bottom-color: var(--orange); font-weight: 600; }
-.nav-tab:hover:not(.active) { color: var(--fog); }
+/* ── MAIN APP ── */
+#app { display:none; flex-direction:column; min-height:100vh; }
+.app-header { background:var(--asphalt); border-bottom:1px solid var(--gravel); padding:0 1.25rem; display:flex; align-items:center; gap:12px; height:56px; position:sticky; top:0; z-index:100; }
+.app-header h1 { font-family:var(--font-head); font-size:20px; font-weight:bold; letter-spacing:2px; color:var(--orange); text-transform:uppercase; }
+.app-header .sub { font-size:11px; color:var(--mist); display:none; }
+@media(min-width:500px){.app-header .sub{display:block}}
+.header-right { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.strava-pill { background:var(--strava); color:#fff; font-size:11px; font-weight:600; padding:3px 10px; border-radius:20px; display:none; align-items:center; gap:4px; }
+.sync-btn { background:var(--gravel); color:var(--fog); font-size:12px; padding:5px 10px; border-radius:var(--r); border:1px solid #3E4239; cursor:pointer; }
+.user-btn { background:var(--orange-lo); color:var(--orange-hi); font-size:12px; padding:5px 10px; border-radius:var(--r); border:1px solid #5A2010; cursor:pointer; }
 
-.panel { display: none; padding: 1.25rem; max-width: 720px; margin: 0 auto; width: 100%; }
-.panel.active { display: block; }
-#coach.panel { padding: 0; max-width: 100%; }
-#coach.panel.active { display: flex; flex-direction: column; height: calc(100vh - 110px); }
+.app-nav { background:var(--asphalt); border-bottom:1px solid var(--gravel); display:flex; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.app-nav::-webkit-scrollbar{display:none}
+.nav-tab { flex:none; padding:12px 16px; font-size:13px; color:var(--mist); background:none; border:none; border-bottom:2px solid transparent; cursor:pointer; white-space:nowrap; }
+.nav-tab.active { color:var(--orange); border-bottom-color:var(--orange); font-weight:600; }
 
-.slabel { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mist); margin-bottom: 0.75rem; }
+.panel { display:none; padding:1.25rem; max-width:720px; margin:0 auto; width:100%; }
+.panel.active { display:block; }
+#coach.panel { padding:0; max-width:100%; }
+#coach.panel.active { display:flex; flex-direction:column; height:calc(100vh - 110px); }
 
-.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 1.25rem; }
-.card { background: var(--asphalt); border: 1px solid var(--gravel); border-radius: var(--r); padding: 0.85rem 1rem; }
-.card .lbl { font-size: 11px; color: var(--mist); margin-bottom: 4px; }
-.card .val { font-size: 22px; font-weight: 700; line-height: 1.1; }
-.card .sub { font-size: 11px; color: var(--mist); margin-top: 3px; }
-.c-orange { color: var(--orange); } .c-green { color: var(--green); } .c-yellow { color: var(--yellow); }
+.slabel { font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--mist); margin-bottom:0.75rem; }
+.cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:1.25rem; }
+.card { background:var(--asphalt); border:1px solid var(--gravel); border-radius:var(--r); padding:0.85rem 1rem; }
+.card .lbl { font-size:11px; color:var(--mist); margin-bottom:4px; }
+.card .val { font-size:22px; font-weight:700; line-height:1.1; }
+.card .sub { font-size:11px; color:var(--mist); margin-top:3px; }
+.c-orange{color:var(--orange)} .c-green{color:var(--green)} .c-yellow{color:var(--yellow)}
 
-.box { border-radius: var(--r); padding: 0.85rem 1rem; font-size: 13px; line-height: 1.6; margin-bottom: 1rem; }
-.box-green { background: var(--green-lo); border: 1px solid #1A4A30; color: #85DBA8; }
-.box-orange { background: var(--orange-lo); border: 1px solid #5A2010; color: #FFB085; }
-.box-yellow { background: var(--yellow-lo); border: 1px solid #4A3F00; color: #E8D070; }
-.box-red { background: var(--red-lo); border: 1px solid #5A1010; color: #FF8585; }
+.box { border-radius:var(--r); padding:0.85rem 1rem; font-size:13px; line-height:1.6; margin-bottom:1rem; }
+.box-green{background:var(--green-lo);border:1px solid #1A4A30;color:#85DBA8}
+.box-orange{background:var(--orange-lo);border:1px solid #5A2010;color:#FFB085}
+.box-yellow{background:var(--yellow-lo);border:1px solid #4A3F00;color:#E8D070}
+.box-red{background:var(--red-lo);border:1px solid #5A1010;color:#FF8585}
 
-.prog-wrap { margin-bottom: 0.85rem; }
-.prog-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; color: var(--fog); }
-.prog-bg { height: 6px; background: var(--gravel); border-radius: 20px; overflow: hidden; }
-.prog-fill { height: 100%; border-radius: 20px; }
+.prog-wrap{margin-bottom:0.85rem}
+.prog-label{display:flex;justify-content:space-between;font-size:12px;margin-bottom:5px;color:var(--fog)}
+.prog-bg{height:6px;background:var(--gravel);border-radius:20px;overflow:hidden}
+.prog-fill{height:100%;border-radius:20px;transition:width 0.8s ease}
 
-.tl { margin-bottom: 1.25rem; }
-.tl-row { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
-.tl-row:last-child { border-bottom: none; }
-.tl-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.tl-date { color: var(--mist); width: 100px; flex-shrink: 0; font-size: 12px; }
-.tl-text { flex: 1; color: var(--fog); line-height: 1.5; }
-.tl-text strong { color: var(--white); }
-.tl-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; align-self: flex-start; margin-top: 2px; }
+.tl{margin-bottom:1.25rem}
+.tl-row{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--gravel);font-size:13px}
+.tl-row:last-child{border-bottom:none}
+.tl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.tl-date{color:var(--mist);width:100px;flex-shrink:0;font-size:12px}
+.tl-text{flex:1;color:var(--fog);line-height:1.5}
+.tl-text strong{color:var(--white)}
+.tl-badge{font-size:10px;padding:2px 8px;border-radius:20px;flex-shrink:0;align-self:flex-start;margin-top:2px}
 
-.ride-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
-.ride-row:last-child { border-bottom: none; }
-.rdot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-.rinfo { flex: 1; min-width: 0; }
-.rname { font-weight: 600; font-size: 13px; }
-.rmeta { color: var(--mist); font-size: 11px; margin-top: 1px; }
-.rstat { text-align: right; flex-shrink: 0; }
-.rstat .big { font-weight: 600; }
-.rstat .sm { font-size: 11px; color: var(--mist); }
-.tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 10px; margin-left: 5px; }
-.tg { background: var(--green-lo); color: var(--green); }
-.to { background: var(--orange-lo); color: var(--orange-hi); }
+.ride-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gravel);font-size:13px}
+.ride-row:last-child{border-bottom:none}
+.rdot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.rinfo{flex:1;min-width:0}
+.rname{font-weight:600;font-size:13px}
+.rmeta{color:var(--mist);font-size:11px;margin-top:1px}
+.rstat{text-align:right;flex-shrink:0}
+.rstat .big{font-weight:600}
+.rstat .sm{font-size:11px;color:var(--mist)}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:5px}
+.tg{background:var(--green-lo);color:var(--green)}
+.to{background:var(--orange-lo);color:var(--orange-hi)}
 
-.wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 1rem; }
-.dc { border-radius: var(--r); border: 1px solid var(--gravel); padding: 8px 4px; text-align: center; }
-.dc.indoor { border-style: dashed; }
-.dc .dn { font-size: 10px; color: var(--mist); margin-bottom: 4px; font-weight: 600; }
-.dc .dt { font-size: 10px; font-weight: 700; margin-bottom: 2px; line-height: 1.3; }
-.dc .dl { font-size: 9px; color: var(--mist); line-height: 1.3; }
-.d-rest { background: var(--asphalt); }
-.d-easy { background: #0D2B1C; border-color: #1A4A30; } .d-easy .dt { color: var(--green); }
-.d-thresh { background: #2A1A00; border-color: #4A3000; } .d-thresh .dt { color: var(--yellow); }
-.d-social { background: #0A1830; border-color: #152A50; } .d-social .dt { color: #6BA3E8; }
-.d-fatigue { background: #1E0A00; border-color: #3A1500; } .d-fatigue .dt { color: var(--orange-hi); }
-.d-long { background: #200800; border-color: #5A1A00; } .d-long .dt { color: var(--orange); }
+.wk{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:1rem}
+.dc{border-radius:var(--r);border:1px solid var(--gravel);padding:8px 4px;text-align:center}
+.dc.indoor{border-style:dashed}
+.dc .dn{font-size:10px;color:var(--mist);margin-bottom:4px;font-weight:600}
+.dc .dt{font-size:10px;font-weight:700;margin-bottom:2px;line-height:1.3}
+.dc .dl{font-size:9px;color:var(--mist);line-height:1.3}
+.d-rest{background:var(--asphalt)}
+.d-easy{background:#0D2B1C;border-color:#1A4A30} .d-easy .dt{color:var(--green)}
+.d-thresh{background:#2A1A00;border-color:#4A3000} .d-thresh .dt{color:var(--yellow)}
+.d-social{background:#0A1830;border-color:#152A50} .d-social .dt{color:#6BA3E8}
+.d-fatigue{background:#1E0A00;border-color:#3A1500} .d-fatigue .dt{color:var(--orange-hi)}
+.d-long{background:#200800;border-color:#5A1A00} .d-long .dt{color:var(--orange)}
 
-.zrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--gravel); font-size: 13px; }
-.zrow:last-child { border-bottom: none; }
-.zdot { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
-.zname { font-weight: 600; width: 130px; font-size: 12px; }
-.zrange { flex: 1; color: var(--fog); font-size: 12px; }
-.znote { font-size: 11px; color: var(--mist); text-align: right; }
+.zrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--gravel);font-size:13px}
+.zrow:last-child{border-bottom:none}
+.zdot{width:11px;height:11px;border-radius:2px;flex-shrink:0}
+.zname{font-weight:600;width:130px;font-size:12px}
+.zrange{flex:1;color:var(--fog);font-size:12px}
+.znote{font-size:11px;color:var(--mist);text-align:right}
 
-.chat-msgs { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; width: 100%; }
-.msg { display: flex; gap: 10px; align-items: flex-start; max-width: 85%; }
-.msg.user { align-self: flex-end; flex-direction: row-reverse; }
-.mav { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
-.msg.coach .mav { background: var(--orange-lo); color: var(--orange-hi); border: 1px solid #5A2010; }
-.msg.user .mav { background: var(--strava); color: #fff; }
-.mbub { padding: 10px 14px; border-radius: 14px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-.msg.coach .mbub { background: var(--asphalt); color: var(--fog); border: 1px solid var(--gravel); border-radius: 2px 14px 14px 14px; }
-.msg.user .mbub { background: var(--orange-lo); color: #FFB085; border: 1px solid #5A2010; border-radius: 14px 2px 14px 14px; }
-.typing { display: flex; gap: 4px; align-items: center; padding: 4px 0; }
-.typing span { width: 6px; height: 6px; border-radius: 50%; background: var(--mist); animation: bounce 1.2s infinite; }
-.typing span:nth-child(2) { animation-delay: 0.2s; }
-.typing span:nth-child(3) { animation-delay: 0.4s; }
+.chat-msgs{flex:1;overflow-y:auto;padding:1.25rem;display:flex;flex-direction:column;gap:12px;max-width:720px;margin:0 auto;width:100%}
+.msg{display:flex;gap:10px;align-items:flex-start;max-width:85%}
+.msg.user{align-self:flex-end;flex-direction:row-reverse}
+.mav{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+.msg.coach .mav{background:var(--orange-lo);color:var(--orange-hi);border:1px solid #5A2010}
+.msg.user .mav{background:var(--strava);color:#fff}
+.mbub{padding:10px 14px;border-radius:14px;font-size:13px;line-height:1.6;white-space:pre-wrap}
+.msg.coach .mbub{background:var(--asphalt);color:var(--fog);border:1px solid var(--gravel);border-radius:2px 14px 14px 14px}
+.msg.user .mbub{background:var(--orange-lo);color:#FFB085;border:1px solid #5A2010;border-radius:14px 2px 14px 14px}
+.typing{display:flex;gap:4px;align-items:center;padding:4px 0}
+.typing span{width:6px;height:6px;border-radius:50%;background:var(--mist);animation:bounce 1.2s infinite}
+.typing span:nth-child(2){animation-delay:0.2s}
+.typing span:nth-child(3){animation-delay:0.4s}
 
-.chat-foot { border-top: 1px solid var(--gravel); background: var(--asphalt); padding: 1rem; flex-shrink: 0; }
-.qps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; max-width: 720px; margin-left: auto; margin-right: auto; }
-.qp { padding: 5px 11px; border-radius: 20px; border: 1px solid var(--gravel); background: var(--asphalt); color: var(--mist); font-size: 12px; cursor: pointer; }
-.qp:hover { border-color: var(--orange); color: var(--orange-hi); }
-.irow { display: flex; gap: 8px; max-width: 720px; margin: 0 auto; }
-.cinput { flex: 1; background: var(--gravel); border: 1px solid #3E4239; border-radius: var(--r); padding: 10px 14px; color: var(--white); font-size: 14px; font-family: var(--font-body); outline: none; resize: none; min-height: 44px; max-height: 120px; }
-.cinput:focus { border-color: var(--orange); }
-.sbtn { background: var(--orange); color: #fff; border: none; border-radius: var(--r); padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer; align-self: flex-end; }
-.sbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.chat-foot{border-top:1px solid var(--gravel);background:var(--asphalt);padding:1rem;flex-shrink:0}
+.qps{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;max-width:720px;margin-left:auto;margin-right:auto}
+.qp{padding:5px 11px;border-radius:20px;border:1px solid var(--gravel);background:var(--asphalt);color:var(--mist);font-size:12px;cursor:pointer}
+.qp:hover{border-color:var(--orange);color:var(--orange-hi)}
+.irow{display:flex;gap:8px;max-width:720px;margin:0 auto}
+.cinput{flex:1;background:var(--gravel);border:1px solid #3E4239;border-radius:var(--r);padding:10px 14px;color:var(--white);font-size:14px;font-family:var(--font-body);outline:none;resize:none;min-height:44px;max-height:120px}
+.cinput:focus{border-color:var(--orange)}
+.sbtn{background:var(--orange);color:#fff;border:none;border-radius:var(--r);padding:10px 18px;font-size:14px;font-weight:700;cursor:pointer;align-self:flex-end}
+.sbtn:disabled{opacity:0.4;cursor:not-allowed}
 
-@media (max-width: 500px) { .panel { padding: 1rem; } .cards { grid-template-columns: repeat(2,1fr); } .wk { gap: 4px; } .dc { padding: 6px 2px; } }
+/* Goal panel */
+.goal-banner { background:var(--orange-lo); border:1px solid #5A2010; border-radius:var(--r); padding:1rem; margin-bottom:1.25rem; }
+.goal-banner .event { font-size:16px; font-weight:700; color:var(--white); margin-bottom:4px; }
+.goal-banner .details { font-size:12px; color:var(--orange-hi); }
+.edit-goal-btn { float:right; background:none; border:1px solid #5A2010; color:var(--orange-hi); font-size:11px; padding:3px 8px; border-radius:var(--r); cursor:pointer; }
+
+@media(max-width:500px){.panel{padding:1rem}.cards{grid-template-columns:repeat(2,1fr)}.wk{gap:4px}.dc{padding:6px 2px}.form-row{grid-template-columns:1fr}.goal-cards{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 
-<div id="loading"><div class="spinner"></div><p>Loading your coach...</p></div>
+<!-- LOADING -->
+<div id="loading">
+  <div class="vamiq-logo">VAMIQ</div>
+  <div class="vamiq-tag">AI Cycling Coach</div>
+  <div class="spinner"></div>
+</div>
 
+<!-- AUTH -->
+<div id="auth" style="display:none">
+  <div class="auth-card">
+    <div class="auth-logo">VAMIQ</div>
+    <div class="auth-tag">AI-powered cycling coach for UCI Gran Fondo qualifiers</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('login')">Sign in</button>
+      <button class="auth-tab" onclick="switchTab('signup')">Create account</button>
+    </div>
+    <div id="login-form">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="Your password" />
+        <div class="field-hint error" id="login-error"></div>
+      </div>
+      <button class="btn-primary" onclick="signIn()">Sign in</button>
+    </div>
+    <div id="signup-form" style="display:none">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="signup-password" placeholder="Create a password" oninput="checkPassword(this.value)" />
+        <div class="pw-rules" id="pw-rules">
+          <div class="pw-rule fail" id="pw-len">✗ At least 8 characters</div>
+          <div class="pw-rule fail" id="pw-upper">✗ One uppercase letter</div>
+          <div class="pw-rule fail" id="pw-num">✗ One number</div>
+          <div class="pw-rule fail" id="pw-sym">✗ One symbol (!@#$%^&*)</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm password</label>
+        <input type="password" id="signup-confirm" placeholder="Repeat password" />
+        <div class="field-hint error" id="signup-error"></div>
+      </div>
+      <button class="btn-primary" id="signup-btn" onclick="signUp()" disabled>Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="onboarding" style="display:none">
+  <div class="onboard-card">
+    <div class="onboard-logo">VAMIQ</div>
+    <div class="onboard-step" id="onboard-step-label">Step 1 of 4 — About you</div>
+    <div class="step-dots" id="step-dots">
+      <div class="dot active"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+
+    <!-- Step 1: About you -->
+    <div id="step-1">
+      <div class="onboard-title">Tell us about yourself</div>
+      <div class="onboard-desc">We'll use this to personalise your training plan and coaching advice.</div>
+      <div class="field"><label>First name</label><input type="text" id="ob-name" placeholder="e.g. Tim" /></div>
+      <div class="form-row">
+        <div class="field"><label>Age</label><input type="number" id="ob-age" placeholder="e.g. 57" min="18" max="80" /></div>
+        <div class="field"><label>Weight (kg)</label><input type="number" id="ob-weight" placeholder="e.g. 84" min="40" max="150" /></div>
+      </div>
+      <div class="field">
+        <label>Experience level</label>
+        <select id="ob-experience">
+          <option value="">Select...</option>
+          <option value="beginner">Beginner — ride occasionally</option>
+          <option value="intermediate">Intermediate — ride regularly</option>
+          <option value="advanced">Advanced — race or train seriously</option>
+          <option value="elite">Elite — competitive racer</option>
+        </select>
+      </div>
+      <div class="btn-row">
+        <button class="btn-next" onclick="nextStep(2)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Your goal -->
+    <div id="step-2" style="display:none">
+      <div class="onboard-title">What's your goal?</div>
+      <div class="onboard-desc">Choose your primary training objective. You can always update this later.</div>
+      <div class="goal-cards">
+        <div class="goal-card" onclick="selectGoal('uci_qualifier')" id="goal-uci_qualifier">
+          <div class="icon">🏆</div>
+          <div class="name">UCI Gran Fondo</div>
+          <div class="desc">Qualify for Worlds</div>
+        </div>
+        <div class="goal-card" onclick="selectGoal('gran_fondo')" id="goal-gran_fondo">
+          <div class="icon">🚴</div>
+          <div class="name">Gran Fondo</div>
+          <div class="desc">Complete or podium</div>
+        </div>
+        <div class="goal-card" onclick="selectGoal('fitness')" id="goal-fitness">
+          <div class="icon">💪</div>
+          <div class="name">Fitness</div>
+          <div class="desc">Get fitter, lose weight</div>
+        </div>
+        <div class="goal-card" onclick="selectGoal('century')" id="goal-century">
+          <div class="icon">🎯</div>
+          <div class="name">Century ride</div>
+          <div class="desc">Complete 100km+</div>
+        </div>
+      </div>
+      <div class="field" id="event-field" style="display:none">
+        <label>Target event name</label>
+        <input type="text" id="ob-event" placeholder="e.g. Amy's Gran Fondo, Lorne" />
+      </div>
+      <div class="field" id="event-date-field" style="display:none">
+        <label>Event date</label>
+        <input type="date" id="ob-event-date" />
+      </div>
+      <div class="btn-row">
+        <button class="btn-back" onclick="nextStep(1)">← Back</button>
+        <button class="btn-next" onclick="nextStep(3)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Training availability -->
+    <div id="step-3" style="display:none">
+      <div class="onboard-title">Your training schedule</div>
+      <div class="onboard-desc">How much time can you dedicate to training each week?</div>
+      <div class="field">
+        <label>Hours per week</label>
+        <select id="ob-hours">
+          <option value="">Select...</option>
+          <option value="4">4–6 hours</option>
+          <option value="7">7–9 hours</option>
+          <option value="10">10–12 hours</option>
+          <option value="13">13–15 hours</option>
+          <option value="16">16+ hours</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Do you have a power meter?</label>
+        <select id="ob-power">
+          <option value="no">No — heart rate only</option>
+          <option value="yes">Yes — power meter</option>
+          <option value="smart">Smart trainer with power</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Estimated FTP (watts) — leave blank if unsure</label>
+        <input type="number" id="ob-ftp" placeholder="e.g. 215" min="100" max="500" />
+      </div>
+      <div class="btn-row">
+        <button class="btn-back" onclick="nextStep(2)">← Back</button>
+        <button class="btn-next" onclick="nextStep(4)">Next →</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Connect Strava -->
+    <div id="step-4" style="display:none">
+      <div class="onboard-title">Connect Strava</div>
+      <div class="onboard-desc">VAMIQ analyses your rides to personalise your training plan and track your progress toward your goal.</div>
+      <button class="strava-connect" onclick="connectStrava()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
+        Connect Strava
+      </button>
+      <button class="skip-btn" onclick="skipStrava()">Skip for now — I'll connect later</button>
+      <div class="field-hint" style="margin-top:1rem;text-align:center">Your Strava data is only used to improve your coaching. We never share it.</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
 <div id="app">
   <header class="app-header">
     <div>
       <h1>VAMIQ</h1>
-      <div class="sub">AI cycling coach · UCI Gran Fondo qualifier</div>
+      <div class="sub" id="app-sub">AI cycling coach</div>
     </div>
     <div class="header-right">
       <div class="strava-pill" id="strava-pill">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066m-7.008-5.599l2.836 5.598h4.172L10.463 0l-7 13.828h4.169"/></svg>
-        Strava live
+        Live
       </div>
-      <button class="sync-btn" id="sync-btn" onclick="syncStrava()">↻ Sync Strava</button>
+      <button class="sync-btn" id="sync-btn" onclick="syncStrava()">↻ Sync</button>
+      <button class="user-btn" id="user-btn" onclick="showUserMenu()">👤</button>
     </div>
   </header>
 
@@ -165,127 +400,84 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
     <button class="nav-tab" onclick="show('rides',this)">Rides</button>
     <button class="nav-tab" onclick="show('week',this)">This week</button>
     <button class="nav-tab" onclick="show('zones',this)">Zones</button>
-    <button class="nav-tab" onclick="show('course',this)">Amy's course</button>
+    <button class="nav-tab" onclick="show('goals',this)">My goal</button>
     <button class="nav-tab" onclick="show('coach',this)">Ask coach</button>
   </nav>
 
   <!-- DASHBOARD -->
   <div id="dashboard" class="panel active">
     <div class="box box-green" id="d-summary">
-      <strong>Welcome to VAMIQ.</strong> Sync Strava to load your latest ride data.
+      <strong>Welcome to VAMIQ.</strong> Sync your Strava to load your latest ride data and get personalised coaching.
     </div>
     <p class="slabel">Your numbers</p>
     <div class="cards">
-      <div class="card"><div class="lbl">Est. FTP</div><div class="val c-orange" id="d-ftp">~215 W</div><div class="sub" id="d-ftp-sub">Based on HR data</div></div>
-      <div class="card"><div class="lbl">W/kg</div><div class="val" id="d-wkg">2.56</div><div class="sub">Target: 3.0 W/kg</div></div>
-      <div class="card"><div class="lbl">Best long ride</div><div class="val c-green" id="d-best">4h 10m</div><div class="sub" id="d-best-sub">107 km · 1,626 m</div></div>
-      <div class="card"><div class="lbl">Last ride</div><div class="val" id="d-last">—</div><div class="sub" id="d-last-sub">Sync to update</div></div>
-      <div class="card"><div class="lbl">Days to Amy's</div><div class="val c-yellow" id="dq">—</div><div class="sub">13 Sep 2026</div></div>
-      <div class="card"><div class="lbl">Days to Worlds</div><div class="val" id="dw">—</div><div class="sub">Aug 2027, France</div></div>
+      <div class="card"><div class="lbl">Est. FTP</div><div class="val c-orange" id="d-ftp">— W</div><div class="sub" id="d-ftp-sub">Sync Strava to calculate</div></div>
+      <div class="card"><div class="lbl">W/kg</div><div class="val" id="d-wkg">—</div><div class="sub">Target: 3.0+</div></div>
+      <div class="card"><div class="lbl">Best long ride</div><div class="val c-green" id="d-best">—</div><div class="sub" id="d-best-sub">Sync to load</div></div>
+      <div class="card"><div class="lbl">Last ride</div><div class="val" id="d-last">—</div><div class="sub" id="d-last-sub">Sync to load</div></div>
+      <div class="card"><div class="lbl">Days to goal</div><div class="val c-yellow" id="d-days">—</div><div class="sub" id="d-days-sub">Set your goal</div></div>
+      <div class="card"><div class="lbl">Target time</div><div class="val c-orange" id="d-target">—</div><div class="sub" id="d-target-sub">Based on your goal</div></div>
     </div>
-    <p class="slabel">Qualifier readiness</p>
-    <div class="prog-wrap"><div class="prog-label"><span>Aerobic base</span><span>75%</span></div><div class="prog-bg"><div class="prog-fill" style="width:75%;background:var(--green)"></div></div></div>
-    <div class="prog-wrap"><div class="prog-label"><span>Threshold power</span><span>42%</span></div><div class="prog-bg"><div class="prog-fill" style="width:42%;background:var(--yellow)"></div></div></div>
-    <div class="prog-wrap"><div class="prog-label"><span>Fatigue climbing (Climb 2 sim)</span><span>35%</span></div><div class="prog-bg"><div class="prog-fill" style="width:35%;background:var(--yellow)"></div></div></div>
-    <div class="prog-wrap"><div class="prog-label"><span>Gran fondo race pace 122 km</span><span>30%</span></div><div class="prog-bg"><div class="prog-fill" style="width:30%;background:var(--orange)"></div></div></div>
-    <p class="slabel" style="margin-top:1.25rem">Road to France</p>
-    <div class="tl">
-      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Now–Aug 2026</div><div class="tl-text"><strong>Base + build:</strong> Weekly plan, long rides to 120+ km, 1,800 m climbing. FTP 210→235 W.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Now</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">Aug 2026</div><div class="tl-text"><strong>Sharpen + taper:</strong> Race simulation at Amy's pace, 2-week taper, nail nutrition.</div><div class="tl-badge" style="background:var(--yellow-lo);color:var(--yellow)">Sharpen</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">13 Sep 2026</div><div class="tl-text"><strong>Amy's Gran Fondo, Lorne.</strong> Execute pacing plan. Qualify for UCI Worlds!</div><div class="tl-badge" style="background:var(--orange-lo);color:var(--orange-hi)">Race</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:#6BA3E8"></div><div class="tl-date">Oct–Dec 2026</div><div class="tl-text"><strong>Off-season reset:</strong> Recovery, gym strength, maintain base.</div><div class="tl-badge" style="background:#0A1830;color:#6BA3E8">Reset</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Jan–Jul 2027</div><div class="tl-text"><strong>Worlds build:</strong> VO2max blocks, FTP→250+ W (3.0 W/kg), recon French course.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Build</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--strava)"></div><div class="tl-date">Aug 2027</div><div class="tl-text"><strong>UCI Worlds — France.</strong> All the hard work. Enjoy every kilometre. 🇫🇷</div><div class="tl-badge" style="background:#3A1000;color:#FC7C42">Race day</div></div>
-    </div>
+    <p class="slabel">Goal readiness</p>
+    <div class="prog-wrap"><div class="prog-label"><span>Aerobic base</span><span id="p1-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p1" style="width:0%;background:var(--green)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Climbing capacity</span><span id="p2-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p2" style="width:0%;background:var(--yellow)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Endurance (time in saddle)</span><span id="p3-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p3" style="width:0%;background:var(--yellow)"></div></div></div>
+    <div class="prog-wrap"><div class="prog-label"><span>Race pace readiness</span><span id="p4-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p4" style="width:0%;background:var(--orange)"></div></div></div>
   </div>
 
   <!-- RIDES -->
   <div id="rides" class="panel">
     <p class="slabel">Recent Strava rides</p>
-    <div id="rides-list"><p style="color:var(--mist);font-size:13px">Click ↻ Sync Strava in the top right to load your rides.</p></div>
+    <div id="rides-list"><p style="color:var(--mist);font-size:13px">Click ↻ Sync to load your rides.</p></div>
     <div id="rides-note" class="box box-orange" style="display:none"></div>
   </div>
 
   <!-- WEEK -->
   <div id="week" class="panel">
-    <p class="slabel">Your training week — base phase</p>
-    <div class="wk">
-      <div class="dc d-rest"><div class="dn">Mon</div><div class="dt" style="color:var(--mist)">Rest</div><div class="dl">Off/stretch</div></div>
-      <div class="dc d-easy indoor"><div class="dn">Tue 🏠</div><div class="dt">Rollers Z2</div><div class="dl">90 min easy</div></div>
-      <div class="dc d-thresh indoor"><div class="dn">Wed 🏠</div><div class="dt">Rollers Z4</div><div class="dl">3×12 min</div></div>
-      <div class="dc d-easy"><div class="dn">Thu</div><div class="dt">Recovery</div><div class="dl">60 min Z1</div></div>
-      <div class="dc d-social"><div class="dn">Fri</div><div class="dt">Social</div><div class="dl">2–3 h group</div></div>
-      <div class="dc d-fatigue"><div class="dn">Sat</div><div class="dt">Fatigue climbs</div><div class="dl">2 h outdoors</div></div>
-      <div class="dc d-long"><div class="dn">Sun</div><div class="dt">Long ride</div><div class="dl">4.5–5.5 h</div></div>
+    <p class="slabel">Your training week</p>
+    <div id="week-content">
+      <div class="box box-yellow">Your personalised weekly plan will appear here once you complete onboarding and set your goal.</div>
     </div>
-    <p class="slabel">Day by day</p>
-    <div class="tl">
-      <div class="tl-row"><div class="tl-dot" style="background:var(--gravel)"></div><div class="tl-date">Mon — Rest</div><div class="tl-text">Full off day. Stretch, foam roll. Non-negotiable masters recovery after Sunday.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Tue — Rollers</div><div class="tl-text"><strong>90 min Z2.</strong> HR under 135 bpm (140 indoors), 85–90 rpm. Fan on. No coasting.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">Wed — Rollers</div><div class="tl-text"><strong>3×12 min threshold.</strong> Warm up 15 min. 158–168 bpm (155–165 indoors), 70–75 rpm big gear. 5 min easy between. Fan essential.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">Thu — Outdoors</div><div class="tl-text"><strong>60 min Z1 recovery.</strong> HR under 125 bpm, flat roads. Eltham or Diamond Creek.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:#6BA3E8"></div><div class="tl-date">Fri — Social</div><div class="tl-text"><strong>2–3 h group ride</strong> with at least one real climb — KG hills, Wattle Glen, Hurstbridge. Pre-loads fatigue for Saturday intentionally.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--orange-hi)"></div><div class="tl-date">Sat — Outdoors</div><div class="tl-text"><strong>Fatigue climbing.</strong> 45–60 min easy, then 3×8 min Z4 on Clintons Rd or Broad Gully, only 3 min recovery. Simulates Climb 2 at Amy's on tired legs.</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">Sun — Long ride</div><div class="tl-text"><strong>4.5–5.5 h.</strong> Build to 120–130 km, 1,500–1,800 m climbing. Structure like Amy's: big climb early, flat Z2 recovery, second climb when fatigued. Eat every 25 min.</div></div>
-    </div>
-    <div class="box box-orange"><strong>~530 TSS/week.</strong> Saturday fatigue climbing is your most race-specific session — protect it. Rollers Tue/Wed frees your mornings without losing training value.</div>
   </div>
 
   <!-- ZONES -->
   <div id="zones" class="panel">
-    <div class="box box-yellow">Estimated from your Strava HR data. Max HR 176 bpm (Clintons Rd). To get a precise FTP: 20-min all-out effort on Main Road TT segment, take 95% of average power.</div>
-    <p class="slabel">Training zones — est. 215 W FTP · max HR 176</p>
-    <div style="margin-bottom:1.25rem">
-      <div class="zrow"><div class="zdot" style="background:#4CAF7D"></div><div class="zname">Z1 — Recovery</div><div class="zrange">&lt;118 W · &lt;130 bpm</div><div class="znote">Thu recovery</div></div>
-      <div class="zrow"><div class="zdot" style="background:#2D9B6A"></div><div class="zname">Z2 — Endurance</div><div class="zrange">118–161 W · 130–145 bpm</div><div class="znote">Tue rollers, Sun long</div></div>
-      <div class="zrow"><div class="zdot" style="background:#E8C30A"></div><div class="zname">Z3 — Tempo</div><div class="zrange">162–193 W · 145–158 bpm</div><div class="znote">Fri social pace</div></div>
-      <div class="zrow"><div class="zdot" style="background:#E8A20A"></div><div class="zname">Z4 — Threshold</div><div class="zrange">194–225 W · 158–168 bpm</div><div class="znote">Wed rollers, Sat climbs</div></div>
-      <div class="zrow"><div class="zdot" style="background:#E86040"></div><div class="zname">Z5 — VO2max</div><div class="zrange">226–258 W · 168–176 bpm</div><div class="znote">Hard KOM efforts</div></div>
-      <div class="zrow"><div class="zdot" style="background:#E84040"></div><div class="zname">Z6 — Anaerobic</div><div class="zrange">&gt;258 W · max</div><div class="znote">Sprint segments</div></div>
+    <div class="box box-yellow" id="zones-note">Sync your Strava and complete onboarding to see your personalised training zones.</div>
+    <p class="slabel">Training zones</p>
+    <div id="zones-content">
+      <div class="zrow"><div class="zdot" style="background:#4CAF7D"></div><div class="zname">Z1 — Recovery</div><div class="zrange" id="z1-range">—</div><div class="znote">Easy spin</div></div>
+      <div class="zrow"><div class="zdot" style="background:#2D9B6A"></div><div class="zname">Z2 — Endurance</div><div class="zrange" id="z2-range">—</div><div class="znote">Long rides</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E8C30A"></div><div class="zname">Z3 — Tempo</div><div class="zrange" id="z3-range">—</div><div class="znote">Sustained effort</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E8A20A"></div><div class="zname">Z4 — Threshold</div><div class="zrange" id="z4-range">—</div><div class="znote">Hard intervals</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E86040"></div><div class="zname">Z5 — VO2max</div><div class="zrange" id="z5-range">—</div><div class="znote">Short hard efforts</div></div>
+      <div class="zrow"><div class="zdot" style="background:#E84040"></div><div class="zname">Z6 — Anaerobic</div><div class="zrange" id="z6-range">—</div><div class="znote">Sprints</div></div>
     </div>
-    <div class="box box-orange"><strong>Roller adjustment:</strong> HR runs 5–8 bpm high indoors. Z2 target &lt;140 bpm. Threshold target 155–165 bpm. Trust effort over number in a warm room.</div>
-    <p class="slabel" style="margin-top:1.25rem">Amy's pacing targets (est. 215 W FTP)</p>
-    <div class="zrow"><div class="zdot" style="background:var(--yellow)"></div><div class="zname">Climb 1 (fresh)</div><div class="zrange">172–183 W · 80–85% FTP</div><div class="znote">Don't blow up early</div></div>
-    <div class="zrow"><div class="zdot" style="background:var(--green)"></div><div class="zname">Descent + GOR</div><div class="zrange">122–150 W · 57–70%</div><div class="znote">Recover, eat, drink</div></div>
-    <div class="zrow"><div class="zdot" style="background:#6BA3E8"></div><div class="zname">Coastal flats</div><div class="zrange">150–172 W · 70–80%</div><div class="znote">Steady, stay aero</div></div>
-    <div class="zrow"><div class="zdot" style="background:var(--orange)"></div><div class="zname">Climb 2 (tired)</div><div class="zrange">183–194 W · 85–90%</div><div class="znote">The qualifier — go!</div></div>
-    <div class="zrow"><div class="zdot" style="background:var(--green)"></div><div class="zname">Average target</div><div class="zrange">161–172 W · 75–80%</div><div class="znote">Top 25% qualifier pace</div></div>
   </div>
 
-  <!-- COURSE -->
-  <div id="course" class="panel">
-    <p class="slabel">Amy's Gran Fondo · 13 Sep 2026 · Lorne, Victoria</p>
-    <div class="cards">
-      <div class="card"><div class="lbl">Distance</div><div class="val">122 km</div><div class="sub">Closed roads</div></div>
-      <div class="card"><div class="lbl">Elevation</div><div class="val c-yellow">1,869 m</div><div class="sub">2 major climbs</div></div>
-      <div class="card"><div class="lbl">Peak altitude</div><div class="val">569 m</div><div class="sub">Before GOR descent</div></div>
-      <div class="card"><div class="lbl">Qualifier</div><div class="val c-green">Top 25%</div><div class="sub">55–59 M age group</div></div>
-      <div class="card"><div class="lbl">Target time</div><div class="val c-orange">4h 30m</div><div class="sub">Safe qualifier</div></div>
-      <div class="card"><div class="lbl">Stretch goal</div><div class="val">4h 15m</div><div class="sub">Comfortable margin</div></div>
+  <!-- GOALS -->
+  <div id="goals" class="panel">
+    <p class="slabel">My training goal</p>
+    <div id="goal-display">
+      <div class="box box-orange">No goal set yet. Complete onboarding to set your training goal.</div>
     </div>
-    <div class="box box-red"><strong>Key course fact:</strong> Both major climbs come in the first half — Climb 1 out of Lorne, then straight into Climb 2 (Forrest → Mt Sabine). The back half is descent and Great Ocean Road coastal road. Pace the climbs right and you can make up time on the way home.</div>
-    <p class="slabel">Course breakdown</p>
-    <div class="tl">
-      <div class="tl-row"><div class="tl-dot" style="background:var(--yellow)"></div><div class="tl-date">0–~30 km</div><div class="tl-text"><strong>Climb 1 — Otway Ranges.</strong> Straight out of Lorne on fresh legs. Ride at 80–85% FTP (172–183 W), seated, 75–80 rpm. Controlled — resist the race adrenaline.</div><div class="tl-badge" style="background:var(--yellow-lo);color:var(--yellow)">Climb 1</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--orange)"></div><div class="tl-date">~30–80 km</div><div class="tl-text"><strong>Climb 2 — Forrest → Mt Sabine.</strong> The race-deciding climb while legs still have something left. Target 85–90% FTP (183–194 W). This is where the qualifier is won or lost. Your Saturday fatigue sessions are built for this.</div><div class="tl-badge" style="background:var(--orange-lo);color:var(--orange-hi)">Climb 2 ⚠️</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--green)"></div><div class="tl-date">~80–115 km</div><div class="tl-text"><strong>Descent + Great Ocean Road.</strong> Long descent then coastal flats back toward Lorne. Recover hard — eat, drink, get HR to Z2. If you paced the climbs right, you can push on here.</div><div class="tl-badge" style="background:var(--green-lo);color:var(--green)">Recovery</div></div>
-      <div class="tl-row"><div class="tl-dot" style="background:var(--strava)"></div><div class="tl-date">~115–122 km</div><div class="tl-text"><strong>Finish — Lorne main street.</strong> Empty the tank. Both climbs are done — now just ride. 🏁</div><div class="tl-badge" style="background:#3A1000;color:#FC7C42">Race!</div></div>
-    </div>
+    <button class="btn-primary" style="margin-top:1rem" onclick="editGoal()">Update my goal</button>
   </div>
 
   <!-- COACH -->
   <div id="coach" class="panel">
     <div class="chat-msgs" id="chat-msgs">
-      <div class="msg coach"><div class="mav">🚴</div><div class="mbub">G'day Tim! I'm VAMIQ, your AI cycling coach. I'm loaded with your training plan, Amy's course details, and your Strava history. That 107 km ride was a ripper — what do you want to work on today?</div></div>
+      <div class="msg coach">
+        <div class="mav">🚴</div>
+        <div class="mbub" id="coach-welcome">G'day! I'm your VAMIQ coach. Complete your profile and connect Strava so I can give you personalised advice. What do you want to work on?</div>
+      </div>
     </div>
     <div class="chat-foot">
-      <div class="qps">
-        <button class="qp" onclick="qa('Am I on track to qualify at Amy\'s Gran Fondo?')">Am I on track?</button>
-        <button class="qp" onclick="qa('How do I pace Climb 1 without blowing up before Climb 2?')">Climb 1 pacing</button>
-        <button class="qp" onclick="qa('What should I eat and drink during Amy\'s Gran Fondo?')">Race nutrition</button>
-        <button class="qp" onclick="qa('My Wednesday roller session felt too hard — how do I adjust for indoor heat?')">Roller HR drift</button>
-        <button class="qp" onclick="qa('How should I taper the 2 weeks before Amy\'s?')">Pre-race taper</button>
-        <button class="qp" onclick="qa('Should I get a power meter before Amy\'s?')">Power meter?</button>
+      <div class="qps" id="quick-prompts">
+        <button class="qp" onclick="qa('What should my training look like this week?')">This week's plan</button>
+        <button class="qp" onclick="qa('How do I pace my target event?')">Event pacing</button>
+        <button class="qp" onclick="qa('What should I eat on long rides?')">Nutrition</button>
+        <button class="qp" onclick="qa('How do I know if I am overtraining?')">Recovery</button>
+        <button class="qp" onclick="qa('Should I get a power meter?')">Power meter?</button>
       </div>
       <div class="irow">
         <textarea class="cinput" id="cinput" placeholder="Ask your coach anything..." rows="1"></textarea>
@@ -296,57 +488,289 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
 </div>
 
 <script>
-const SYSTEM = `You are an expert UCI cycling coach for Tim Dugan, male masters cyclist, Melbourne Victoria Australia, 55-59 age group, 84 kg.
+// ── SUPABASE ──
+const SUPABASE_URL = 'https://brkwipcywnsuqaufzwjx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_vf3IPgGb3Yf02bCtPPGL3Q_khJ58s2b';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-STRAVA PROFILE:
-- Rides: Kangaroo Ground, Eltham, Diamond Creek, Clintons Rd, Broad Gully, Nankervis Rd, Strathewen, Wilson Rd, Cherry Tree Rd
-- Est FTP: ~215W (~2.56 W/kg). No power meter, HR only. Max HR 176 bpm (Clintons Rd).
-- Best 100K: 5h 8min (5 Jul 2026) — 107km, 1286m, avg HR 131bpm, 22 PRs incl Clintons Rd full and Broad Gully
-- Longest ride: 142.5km, 5h 18min, 1328m (2 May 2026)
-- Regular indoor roller sessions. New bike May 2026.
-
-WEEKLY PLAN:
-- Mon: Rest (non-negotiable)
-- Tue: ROLLERS — 90min Z2, HR <135bpm (<140 indoors), 85-90rpm, fan essential
-- Wed: ROLLERS — 3x12min Z4 threshold, 158-168bpm (155-165 indoors), 70-75rpm big gear, 5min easy between, fan essential
-- Thu: Outdoors easy Z1, 60min, HR <125bpm, flat roads (Eltham/Diamond Creek)
-- Fri: Social group ride outdoors, 2-3h, at least one real climb (KG hills/Wattle Glen/Hurstbridge)
-- Sat: OUTDOORS fatigue climbing — 45-60min easy then 3x8min Z4 on Clintons Rd or Broad Gully, only 3min recovery. Simulates Amy's Climb 2 on tired legs.
-- Sun: OUTDOORS long ride — 4.5-5.5h, build to 120-130km with 1500-1800m climbing. Structure like Amy's: big climb early, flat Z2 recovery, second climb when fatigued. Eat every 25min.
-- Weekly TSS: ~530
-
-GOALS:
-1. Qualify at Amy's Gran Fondo, Lorne Victoria, 13 Sep 2026. Top 25% in 55-59M. Target 4h15-4h30min.
-2. UCI Gran Fondo Worlds, France, Aug 2027, 55-59M.
-
-AMY'S COURSE (122km, 1869m, start 7:50am Lorne):
-- Climb 1 (0-~30km): Otways from Lorne. Fresh legs. Ride 80-85% FTP (172-183W est), seated 75-80rpm. Stay controlled.
-- Climb 2 (~30-80km): Forrest to Mt Sabine. The race-deciding climb — arrives while legs still have something. Target 85-90% FTP (183-194W est). This is where the qualifier is won or lost.
-- Descent + Great Ocean Road (~80-115km): Long descent then coastal flats back toward Lorne. Key recovery and nutrition window. Eat, drink, recover for the finish.
-- Finish (~115-122km): Lorne main street. Empty the tank.
-- NOTE: Both major climbs come in the FIRST HALF. The back half is descent and coastal road — if you pace the climbs right you can make up time here.
-
-ZONES (215W FTP, max HR 176):
-Z1 <118W <130bpm | Z2 118-161W 130-145bpm | Z3 162-193W 145-158bpm | Z4 194-225W 158-168bpm | Z5 226-258W 168-176bpm | Z6 >258W
-
-Roller HR adjust: subtract 5-8bpm from all targets indoors. Fan essential.
-Specific, practical, encouraging. Reference local segments. Australian casual tone.`;
-
-let history = [];
+// ── STATE ──
+let currentUser = null;
+let userProfile = null;
+let chatHistory = [];
 let liveRides = '';
+let currentStep = 1;
+let selectedGoal = '';
 
-window.addEventListener('load', () => {
-  document.getElementById('loading').style.display = 'none';
-  updateCountdowns();
-  syncStrava();
+// ── INIT ──
+window.addEventListener('load', async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+  } else {
+    showScreen('auth');
+  }
 });
 
-function updateCountdowns() {
-  const now = new Date();
-  document.getElementById('dq').textContent = Math.ceil((new Date('2026-09-13') - now) / 86400000);
-  document.getElementById('dw').textContent = Math.ceil((new Date('2027-08-24') - now) / 86400000);
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (event === 'SIGNED_IN' && session) {
+    currentUser = session.user;
+    await loadProfile();
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null;
+    userProfile = null;
+    showScreen('auth');
+  }
+});
+
+function showScreen(screen) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('auth').style.display = 'none';
+  document.getElementById('onboarding').style.display = 'none';
+  document.getElementById('app').style.display = 'none';
+  if (screen === 'auth') document.getElementById('auth').style.display = 'flex';
+  else if (screen === 'onboarding') document.getElementById('onboarding').style.display = 'flex';
+  else if (screen === 'app') {
+    document.getElementById('app').style.display = 'flex';
+    document.getElementById('app').style.flexDirection = 'column';
+    initApp();
+  }
 }
 
+// ── AUTH ──
+function switchTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+}
+
+function checkPassword(pw) {
+  const rules = {
+    'pw-len': pw.length >= 8,
+    'pw-upper': /[A-Z]/.test(pw),
+    'pw-num': /[0-9]/.test(pw),
+    'pw-sym': /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pw)
+  };
+  let allOk = true;
+  for (const [id, ok] of Object.entries(rules)) {
+    const el = document.getElementById(id);
+    el.className = 'pw-rule ' + (ok ? 'ok' : 'fail');
+    el.textContent = (ok ? '✓' : '✗') + ' ' + el.textContent.slice(2);
+    if (!ok) allOk = false;
+  }
+  document.getElementById('signup-btn').disabled = !allOk;
+  return allOk;
+}
+
+async function signIn() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  document.getElementById('login-error').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) document.getElementById('login-error').textContent = error.message;
+}
+
+async function signUp() {
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const confirm = document.getElementById('signup-confirm').value;
+  document.getElementById('signup-error').textContent = '';
+  if (password !== confirm) { document.getElementById('signup-error').textContent = 'Passwords do not match'; return; }
+  if (!checkPassword(password)) return;
+  const { error } = await sb.auth.signUp({ email, password });
+  if (error) document.getElementById('signup-error').textContent = error.message;
+  else document.getElementById('signup-error').textContent = '';
+}
+
+// ── PROFILE ──
+async function loadProfile() {
+  try {
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (data && !error) {
+      userProfile = data;
+      showScreen('app');
+    } else {
+      showScreen('onboarding');
+    }
+  } catch (e) {
+    showScreen('onboarding');
+  }
+}
+
+async function saveProfile(profile) {
+  const { error } = await sb.from('profiles').upsert({ id: currentUser.id, ...profile, updated_at: new Date().toISOString() });
+  if (!error) userProfile = { id: currentUser.id, ...profile };
+}
+
+// ── ONBOARDING ──
+function nextStep(step) {
+  document.getElementById('step-' + currentStep).style.display = 'none';
+  currentStep = step;
+  document.getElementById('step-' + step).style.display = 'block';
+
+  // Update dots
+  const dots = document.querySelectorAll('.dot');
+  dots.forEach((d, i) => {
+    d.className = 'dot' + (i < step - 1 ? ' done' : i === step - 1 ? ' active' : '');
+  });
+
+  const labels = ['About you', 'Your goal', 'Training schedule', 'Connect Strava'];
+  document.getElementById('onboard-step-label').textContent = `Step ${step} of 4 — ${labels[step-1]}`;
+}
+
+function selectGoal(goal) {
+  selectedGoal = goal;
+  document.querySelectorAll('.goal-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('goal-' + goal).classList.add('selected');
+  const showEvent = goal === 'uci_qualifier' || goal === 'gran_fondo';
+  document.getElementById('event-field').style.display = showEvent ? 'block' : 'none';
+  document.getElementById('event-date-field').style.display = showEvent ? 'block' : 'none';
+}
+
+function connectStrava() {
+  const clientId = '263268';
+  const redirectUri = encodeURIComponent(window.location.origin + '/strava-callback');
+  window.location.href = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&approval_prompt=force&scope=activity:read_all`;
+}
+
+async function skipStrava() {
+  await completeOnboarding(null);
+}
+
+async function completeOnboarding(stravaData) {
+  const profile = {
+    name: document.getElementById('ob-name').value.trim(),
+    age: parseInt(document.getElementById('ob-age').value) || null,
+    weight: parseFloat(document.getElementById('ob-weight').value) || null,
+    experience: document.getElementById('ob-experience').value,
+    goal_type: selectedGoal,
+    goal_event: document.getElementById('ob-event')?.value || '',
+    goal_date: document.getElementById('ob-event-date')?.value || null,
+    hours_per_week: parseInt(document.getElementById('ob-hours').value) || null,
+    has_power_meter: document.getElementById('ob-power').value,
+    ftp: parseInt(document.getElementById('ob-ftp').value) || null,
+    strava_access_token: stravaData?.access_token || null,
+    strava_refresh_token: stravaData?.refresh_token || null,
+  };
+  await saveProfile(profile);
+  showScreen('app');
+}
+
+// ── APP ──
+function initApp() {
+  updateCountdowns();
+  updateGoalDisplay();
+  updateWeeklyPlan();
+  updateCoachWelcome();
+  if (userProfile?.strava_access_token) syncStrava();
+  if (userProfile?.name) {
+    document.getElementById('app-sub').textContent = `Welcome back, ${userProfile.name}`;
+  }
+}
+
+function updateCountdowns() {
+  if (!userProfile?.goal_date) return;
+  const days = Math.ceil((new Date(userProfile.goal_date) - new Date()) / 86400000);
+  document.getElementById('d-days').textContent = days > 0 ? days : '—';
+  document.getElementById('d-days-sub').textContent = userProfile.goal_event || 'Your goal event';
+}
+
+function updateGoalDisplay() {
+  if (!userProfile?.goal_type) return;
+  const goalNames = {
+    uci_qualifier: 'UCI Gran Fondo Worlds Qualifier',
+    gran_fondo: 'Gran Fondo',
+    fitness: 'General Fitness',
+    century: 'Century Ride'
+  };
+  const goalName = goalNames[userProfile.goal_type] || 'Training goal';
+  const event = userProfile.goal_event || '';
+  const date = userProfile.goal_date ? new Date(userProfile.goal_date).toLocaleDateString('en-AU', {day:'numeric',month:'long',year:'numeric'}) : '';
+  const days = userProfile.goal_date ? Math.ceil((new Date(userProfile.goal_date) - new Date()) / 86400000) : null;
+
+  document.getElementById('goal-display').innerHTML = `
+    <div class="goal-banner">
+      <div class="event">${goalName}${event ? ' — ' + event : ''}</div>
+      <div class="details">${date ? date + (days > 0 ? ' · ' + days + ' days away' : '') : 'No date set'}</div>
+    </div>
+    ${userProfile.ftp ? `<div class="box box-orange" style="margin-top:0"><strong>Est. FTP:</strong> ${userProfile.ftp}W · <strong>W/kg:</strong> ${(userProfile.ftp/(userProfile.weight||80)).toFixed(2)} · <strong>Training:</strong> ${userProfile.hours_per_week||'?'}h/week</div>` : ''}
+  `;
+
+  // Update target time card
+  if (userProfile.goal_type === 'uci_qualifier') {
+    document.getElementById('d-target').textContent = '4h 30m';
+    document.getElementById('d-target-sub').textContent = 'Top 25% qualifier target';
+  } else if (userProfile.goal_type === 'gran_fondo') {
+    document.getElementById('d-target').textContent = 'Finish';
+    document.getElementById('d-target-sub').textContent = 'Strong completion';
+  }
+}
+
+function updateWeeklyPlan() {
+  if (!userProfile?.goal_type) return;
+  const hours = userProfile.hours_per_week || 10;
+  const isHighVolume = hours >= 13;
+
+  document.getElementById('week-content').innerHTML = `
+    <div class="wk">
+      <div class="dc d-rest"><div class="dn">Mon</div><div class="dt" style="color:var(--mist)">Rest</div><div class="dl">Off/stretch</div></div>
+      <div class="dc d-easy indoor"><div class="dn">Tue</div><div class="dt">Z2</div><div class="dl">${hours >= 10 ? '90' : '60'} min</div></div>
+      <div class="dc d-thresh"><div class="dn">Wed</div><div class="dt">Threshold</div><div class="dl">3×12 min Z4</div></div>
+      <div class="dc d-easy"><div class="dn">Thu</div><div class="dt">Recovery</div><div class="dl">60 min Z1</div></div>
+      <div class="dc d-social"><div class="dn">Fri</div><div class="dt">Social</div><div class="dl">2–3 h group</div></div>
+      <div class="dc d-fatigue"><div class="dn">Sat</div><div class="dt">${userProfile.goal_type === 'uci_qualifier' ? 'Fatigue climbs' : 'Intervals'}</div><div class="dl">2 h hard</div></div>
+      <div class="dc d-long"><div class="dn">Sun</div><div class="dt">Long ride</div><div class="dl">${isHighVolume ? '5–6' : '3–5'} h</div></div>
+    </div>
+    <div class="box box-orange">
+      <strong>Weekly target: ~${hours * 55}–${hours * 65} TSS.</strong> 
+      ${userProfile.goal_type === 'uci_qualifier' ? 'Saturday fatigue climbing is your most race-specific session — protect it.' : 'Sunday long ride is your most important session of the week.'}
+      Ask the coach to get a detailed day-by-day breakdown personalised to your goal.
+    </div>
+  `;
+}
+
+function updateZones() {
+  const ftp = userProfile?.ftp || 0;
+  const weight = userProfile?.weight || 80;
+  if (!ftp) return;
+
+  const zones = [
+    { id: 'z1', lo: 0, hi: Math.round(ftp * 0.55) },
+    { id: 'z2', lo: Math.round(ftp * 0.56), hi: Math.round(ftp * 0.75) },
+    { id: 'z3', lo: Math.round(ftp * 0.76), hi: Math.round(ftp * 0.90) },
+    { id: 'z4', lo: Math.round(ftp * 0.91), hi: Math.round(ftp * 1.05) },
+    { id: 'z5', lo: Math.round(ftp * 1.06), hi: Math.round(ftp * 1.20) },
+    { id: 'z6', lo: Math.round(ftp * 1.21), hi: null },
+  ];
+
+  zones.forEach(z => {
+    const el = document.getElementById(z.id + '-range');
+    if (el) el.textContent = z.hi ? `${z.lo}–${z.hi} W` : `>${z.lo} W`;
+  });
+
+  document.getElementById('zones-note').innerHTML = `<strong>Based on your FTP of ${ftp}W (${(ftp/weight).toFixed(2)} W/kg at ${weight}kg).</strong> Update your FTP in My Goal after completing a 20-min test effort.`;
+}
+
+function updateCoachWelcome() {
+  if (!userProfile?.name) return;
+  const name = userProfile.name;
+  const goal = userProfile.goal_event || (userProfile.goal_type === 'uci_qualifier' ? 'UCI Gran Fondo qualifier' : 'your cycling goal');
+  const days = userProfile.goal_date ? Math.ceil((new Date(userProfile.goal_date) - new Date()) / 86400000) : null;
+  const daysText = days && days > 0 ? ` You have ${days} days to prepare.` : '';
+  document.getElementById('coach-welcome').textContent = `G'day ${name}! I'm your VAMIQ coach. I'm here to help you reach ${goal}.${daysText} What do you want to work on today?`;
+}
+
+function editGoal() { showScreen('onboarding'); nextStep(2); }
+
+function showUserMenu() {
+  if (confirm(`Signed in as ${currentUser?.email}\n\nSign out?`)) {
+    sb.auth.signOut();
+  }
+}
+
+// ── NAVIGATION ──
 function show(id, btn) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
@@ -354,173 +778,183 @@ function show(id, btn) {
   btn.classList.add('active');
 }
 
+// ── STRAVA ──
 async function syncStrava() {
+  if (!userProfile?.strava_access_token) return;
   const btn = document.getElementById('sync-btn');
   btn.textContent = '↻ Syncing...';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/strava');
+    const params = new URLSearchParams({
+      access_token: userProfile.strava_access_token,
+      refresh_token: userProfile.strava_refresh_token || ''
+    });
+    const r = await fetch('/api/strava?' + params);
     const data = await r.json();
     if (Array.isArray(data) && data.length > 0) {
       renderRides(data);
-      liveRides = '\n\nLATEST STRAVA RIDES:\n' + data.slice(0,5).map(a => {
-        const km = (a.distance/1000).toFixed(1);
-        const date = new Date(a.start_date_local).toLocaleDateString('en-AU');
-        const isIndoor = a.distance === 0;
-        if (isIndoor) return `${date}: Indoor ${Math.round(a.moving_time/60)}min${a.average_cadence ? ' cadence '+a.average_cadence.toFixed(0)+'rpm' : ''}`;
-        return `${date}: ${km}km ${Math.round(a.total_elevation_gain)}m elev ${Math.round(a.moving_time/60)}min${a.average_heartrate ? ' avg '+Math.round(a.average_heartrate)+'bpm' : ''}${a.pr_count > 0 ? ' '+a.pr_count+' PRs' : ''}`;
-      }).join('\n');
+      updateDashboard(data);
       document.getElementById('strava-pill').style.display = 'flex';
       btn.textContent = '✓ Synced';
-      setTimeout(() => { btn.textContent = '↻ Sync Strava'; btn.disabled = false; }, 3000);
+      setTimeout(() => { btn.textContent = '↻ Sync'; btn.disabled = false; }, 3000);
     } else {
-      btn.textContent = '↻ Sync Strava';
-      btn.disabled = false;
+      btn.textContent = '↻ Sync'; btn.disabled = false;
     }
   } catch(e) {
-    btn.textContent = '↻ Sync Strava';
-    btn.disabled = false;
+    btn.textContent = '↻ Sync'; btn.disabled = false;
   }
 }
 
 function renderRides(rides) {
-  const list = document.getElementById('rides-list');
-  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0, 10);
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0,10);
   if (!cycling.length) return;
+  const list = document.getElementById('rides-list');
   list.innerHTML = cycling.map(r => {
     const km = (r.distance/1000).toFixed(1);
     const mins = Math.round(r.moving_time/60);
     const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
-    const date = new Date(r.start_date_local).toLocaleDateString('en-AU', {weekday:'short',day:'numeric',month:'short'});
+    const date = new Date(r.start_date_local).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
     const isIndoor = r.distance === 0;
     const isLong = r.distance > 80000;
     return `<div class="ride-row">
       <div class="rdot" style="background:${isIndoor?'var(--mist)':isLong?'var(--orange)':'var(--green)'}"></div>
       <div class="rinfo">
         <div class="rname">${r.name}${isIndoor?'<span class="tag to">indoor</span>':''}${isLong?'<span class="tag tg">long</span>':''}</div>
-        <div class="rmeta">${date}${isIndoor?' · indoor roller':' · '+km+' km · '+Math.round(r.total_elevation_gain)+' m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''}</div>
+        <div class="rmeta">${date}${isIndoor?' · indoor':' · '+km+' km · '+Math.round(r.total_elevation_gain)+'m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''}</div>
       </div>
       <div class="rstat">
-        <div class="big">${isIndoor?Math.round(r.moving_time/60)+' min':duration}</div>
+        <div class="big">${isIndoor?mins+' min':duration}</div>
         <div class="sm">${r.average_heartrate?'avg '+Math.round(r.average_heartrate)+' bpm':''}</div>
       </div>
     </div>`;
   }).join('');
   const note = document.getElementById('rides-note');
   note.style.display = 'block';
-  note.innerHTML = '<strong>Coach\'s tip:</strong> Tell the coach how any of these sessions felt and I\'ll adjust next week\'s plan based on your recovery.';
-  updateDashboard(rides);
+  note.innerHTML = '<strong>Coach tip:</strong> Tell the coach how any session felt and I\'ll adjust your plan based on how you\'re recovering.';
+  liveRides = '\n\nLATEST RIDES:\n' + cycling.slice(0,5).map(r => {
+    const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
+    const isIndoor = r.distance === 0;
+    if (isIndoor) return `${date}: Indoor ${Math.round(r.moving_time/60)}min`;
+    return `${date}: ${(r.distance/1000).toFixed(1)}km ${Math.round(r.total_elevation_gain)}m ${Math.round(r.moving_time/60)}min${r.average_heartrate?' avg '+Math.round(r.average_heartrate)+'bpm':''}${r.pr_count>0?' '+r.pr_count+' PRs':''}`;
+  }).join('\n');
 }
 
 function updateDashboard(rides) {
   const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride');
-  if (!cycling.length) return;
+  const outdoor = cycling.filter(r => r.distance > 50000);
+  const weight = userProfile?.weight || 80;
 
   // Last ride
-  const last = cycling[0];
-  const lastKm = (last.distance/1000).toFixed(1);
-  const lastMins = Math.round(last.moving_time/60);
-  const lastH = Math.floor(lastMins/60);
-  const lastM = lastMins % 60;
-  const lastDate = new Date(last.start_date_local).toLocaleDateString('en-AU', {day:'numeric',month:'short'});
-  const isIndoor = last.distance === 0;
-  document.getElementById('d-last').textContent = isIndoor ? lastMins+'m indoor' : lastH+'h '+lastM+'m';
-  document.getElementById('d-last-sub').textContent = isIndoor ? 'Roller session · '+lastDate : lastKm+' km · '+Math.round(last.total_elevation_gain)+'m · '+lastDate;
+  if (cycling.length) {
+    const last = cycling[0];
+    const isIndoor = last.distance === 0;
+    const mins = Math.round(last.moving_time/60);
+    const h = Math.floor(mins/60); const m = mins%60;
+    const date = new Date(last.start_date_local).toLocaleDateString('en-AU',{day:'numeric',month:'short'});
+    document.getElementById('d-last').textContent = isIndoor ? mins+'m' : h+'h '+m+'m';
+    document.getElementById('d-last-sub').textContent = isIndoor ? 'Roller · '+date : (last.distance/1000).toFixed(0)+'km · '+date;
+    // Summary
+    document.getElementById('d-summary').innerHTML = `<strong>Latest ride loaded.</strong> ${date}: ${isIndoor?mins+' min indoor':(last.distance/1000).toFixed(1)+'km, '+Math.round(last.total_elevation_gain)+'m, '+h+'h '+m+'min'}${last.average_heartrate?', avg '+Math.round(last.average_heartrate)+' bpm':''}${last.pr_count>0?', '+last.pr_count+' PRs':''}. Keep building toward your goal!`;
+  }
 
-  // Best long outdoor ride by moving time
-  const outdoor = cycling.filter(r => r.distance > 50000);
+  // Best long ride
   if (outdoor.length) {
     const best = outdoor.reduce((a,b) => a.distance > b.distance ? a : b);
-    const bestMins = Math.round(best.moving_time/60);
-    const bestH = Math.floor(bestMins/60);
-    const bestM = bestMins % 60;
-    const bestKm = (best.distance/1000).toFixed(0);
-    const bestElev = Math.round(best.total_elevation_gain);
-    document.getElementById('d-best').textContent = bestH+'h '+bestM+'m';
-    document.getElementById('d-best-sub').textContent = bestKm+' km · '+bestElev+' m elev';
+    const mins = Math.round(best.moving_time/60);
+    document.getElementById('d-best').textContent = Math.floor(mins/60)+'h '+(mins%60)+'m';
+    document.getElementById('d-best-sub').textContent = (best.distance/1000).toFixed(0)+'km · '+Math.round(best.total_elevation_gain)+'m';
   }
 
-  // Est FTP from max HR seen across all recent rides
-  // We know Tim's max HR is 176 bpm, and threshold is ~95% of max = ~167 bpm
-  // At 131 bpm avg (Z2 long ride) Tim is at ~75% FTP = ~161W → FTP ~215W
-  // Use max HR seen to scale: FTP = maxHR * 1.22 (calibrated to Tim's known data)
-  const allMaxHR = cycling.filter(r => r.max_heartrate > 0).map(r => r.max_heartrate);
-  const maxHRseen = allMaxHR.length ? Math.max(...allMaxHR) : 176;
-  const cappedFTP = Math.min(Math.max(Math.round(maxHRseen * 1.22), 200), 270);
-  const wkg = (cappedFTP / 84).toFixed(2);
-  document.getElementById('d-ftp').textContent = '~'+cappedFTP+' W';
-  document.getElementById('d-ftp-sub').textContent = 'Est. from max HR '+maxHRseen+' bpm';
-  document.getElementById('d-wkg').textContent = wkg;
+  // FTP from max HR or profile
+  const ftp = userProfile?.ftp || (() => {
+    const allMax = cycling.filter(r=>r.max_heartrate>0).map(r=>r.max_heartrate);
+    const maxHR = allMax.length ? Math.max(...allMax) : 0;
+    return maxHR > 0 ? Math.min(Math.max(Math.round(maxHR * 1.22), 150), 350) : 0;
+  })();
 
-  if (outdoor.length) {
+  if (ftp) {
+    const wkg = (ftp/weight).toFixed(2);
+    document.getElementById('d-ftp').textContent = '~'+ftp+' W';
+    document.getElementById('d-ftp-sub').textContent = userProfile?.ftp ? 'From your profile' : 'Est. from max HR';
+    document.getElementById('d-wkg').textContent = wkg;
 
-    // Update qualifier readiness bars based on ride performance vs Amy's targets
-    // Aerobic base: best long ride distance vs 122km target
-    const bestDist = outdoor.length ? Math.max(...outdoor.map(r => r.distance)) : 0;
-    const aerobic = Math.min(Math.round(bestDist / 122000 * 100), 95);
-
-    // Threshold: best elevation in a single ride vs Amy's 1869m target
-    const bestElev = outdoor.length ? Math.max(...outdoor.map(r => r.total_elevation_gain)) : 0;
-    const threshold = Math.min(Math.round(bestElev / 1869 * 80), 90);
-
-    // Fatigue climbing: combo of elevation + ride count (sessions done)
-    const fatigue = Math.min(Math.round(threshold * 0.8), 85);
-
-    // Race pace: longest ride time vs target 4h30min (270min)
-    const bestTime = outdoor.length ? Math.max(...outdoor.map(r => r.moving_time)) : 0;
-    const racePace = Math.min(Math.round(bestTime / (270 * 60) * 100 * 0.85), 90);
-
-    const bars = document.querySelectorAll('.prog-fill');
-    if (bars[0]) { bars[0].style.width = aerobic + '%'; }
-    if (bars[1]) { bars[1].style.width = threshold + '%'; }
-    if (bars[2]) { bars[2].style.width = fatigue + '%'; }
-    if (bars[3]) { bars[3].style.width = racePace + '%'; }
-
-    const labels = document.querySelectorAll('.prog-label span:last-child');
-    if (labels[0]) labels[0].textContent = aerobic + '%';
-    if (labels[1]) labels[1].textContent = threshold + '%';
-    if (labels[2]) labels[2].textContent = fatigue + '%';
-    if (labels[3]) labels[3].textContent = racePace + '%';
+    // Update zones
+    if (!userProfile?.ftp) {
+      userProfile = { ...userProfile, ftp };
+    }
+    updateZones();
   }
 
-  // Update summary box
-  const summary = document.getElementById('d-summary');
-  const lastKmFull = (last.distance/1000).toFixed(1);
-  const prs = last.pr_count > 0 ? ', '+last.pr_count+' PRs' : '';
-  const avgHR = last.average_heartrate ? ', avg '+Math.round(last.average_heartrate)+' bpm' : '';
-  if (!isIndoor) {
-    summary.innerHTML = '<strong>Latest ride loaded.</strong> '+lastDate+': '+lastKmFull+' km, '+Math.round(last.total_elevation_gain)+'m elevation, '+lastH+'h '+lastM+'min'+avgHR+prs+'. Keep at it — Amy\'s is '+document.getElementById("dq").textContent+' days away!';
-  } else {
-    summary.innerHTML = '<strong>Latest session loaded.</strong> Roller session on '+lastDate+' — '+lastMins+' min. Good work keeping the base ticking over.';
+  // Progress bars
+  if (outdoor.length && userProfile?.goal_date) {
+    const bestDist = Math.max(...outdoor.map(r=>r.distance));
+    const targetDist = userProfile.goal_type === 'century' ? 100000 : 122000;
+    const bestElev = Math.max(...outdoor.map(r=>r.total_elevation_gain));
+    const targetElev = userProfile.goal_type === 'uci_qualifier' ? 1869 : 1200;
+    const bestTime = Math.max(...outdoor.map(r=>r.moving_time));
+    const targetTime = 270 * 60;
+
+    const p1 = Math.min(Math.round(bestDist/targetDist*100), 95);
+    const p2 = Math.min(Math.round(bestElev/targetElev*85), 90);
+    const p3 = Math.min(Math.round(bestTime/targetTime*90), 90);
+    const p4 = Math.min(Math.round((p1+p2+p3)/3*0.8), 85);
+
+    [['p1',p1],['p2',p2],['p3',p3],['p4',p4]].forEach(([id,val]) => {
+      document.getElementById(id).style.width = val+'%';
+      document.getElementById(id+'-pct').textContent = val+'%';
+    });
   }
+}
+
+// ── CHAT ──
+function buildSystemPrompt() {
+  const p = userProfile || {};
+  const goalLabels = { uci_qualifier:'UCI Gran Fondo Worlds qualifier', gran_fondo:'Gran Fondo completion', fitness:'general fitness', century:'century ride (100km+)' };
+  const days = p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/86400000) : null;
+
+  return `You are VAMIQ, an expert AI cycling coach. You adapt to every athlete's individual goals and data.
+
+ATHLETE PROFILE:
+- Name: ${p.name||'the athlete'}
+- Age: ${p.age||'unknown'} · Weight: ${p.weight||'unknown'}kg
+- Experience: ${p.experience||'unknown'}
+- FTP: ${p.ftp||'unknown'}W${p.ftp&&p.weight?' ('+( p.ftp/p.weight).toFixed(2)+' W/kg)':''}
+- Power meter: ${p.has_power_meter||'unknown'}
+- Training hours/week: ${p.hours_per_week||'unknown'}h
+
+GOAL:
+- Type: ${goalLabels[p.goal_type]||'not set'}
+- Event: ${p.goal_event||'not specified'}
+- Date: ${p.goal_date||'not set'}${days?' ('+days+' days away)':''}
+
+Be specific, practical and encouraging. Adapt all advice to this athlete's goal, fitness level and available training time. If goal is UCI Gran Fondo qualifier, focus on qualifying strategy, pacing, climbing endurance. If goal is fitness or century, focus on base building and completion. Australian casual tone. Concise but actionable.`;
 }
 
 async function send() {
   const inp = document.getElementById('cinput');
   const msg = inp.value.trim();
   if (!msg) return;
-  inp.value = '';
-  inp.style.height = 'auto';
+  inp.value = ''; inp.style.height = 'auto';
   addMsg('user', msg);
   document.getElementById('sbtn').disabled = true;
   inp.disabled = true;
   const t = addTyping();
-  history.push({ role: 'user', content: msg });
+  chatHistory.push({ role:'user', content:msg });
   try {
     const r = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1000, system: SYSTEM + liveRides, messages: history })
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system: buildSystemPrompt()+liveRides, messages:chatHistory })
     });
     const d = await r.json();
     t.remove();
-    if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-    const reply = d.content.map(b => b.text||'').join('');
-    history.push({ role: 'assistant', content: reply });
+    if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
+    const reply = d.content.map(b=>b.text||'').join('');
+    chatHistory.push({ role:'assistant', content:reply });
     addMsg('coach', reply);
   } catch(e) {
     t.remove();
-    addMsg('coach', '⚠️ ' + e.message);
+    addMsg('coach', '⚠️ '+e.message);
   }
   document.getElementById('sbtn').disabled = false;
   inp.disabled = false;
@@ -530,10 +964,9 @@ async function send() {
 function addMsg(role, text) {
   const c = document.getElementById('chat-msgs');
   const d = document.createElement('div');
-  d.className = 'msg ' + role;
-  d.innerHTML = `<div class="mav">${role==='coach'?'🚴':'TD'}</div><div class="mbub">${text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>`;
-  c.appendChild(d);
-  c.scrollTop = c.scrollHeight;
+  d.className = 'msg '+role;
+  d.innerHTML = `<div class="mav">${role==='coach'?'🚴':'👤'}</div><div class="mbub">${text.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}</div>`;
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
   return d;
 }
 
@@ -542,8 +975,7 @@ function addTyping() {
   const d = document.createElement('div');
   d.className = 'msg coach';
   d.innerHTML = '<div class="mav">🚴</div><div class="mbub"><div class="typing"><span></span><span></span><span></span></div></div>';
-  c.appendChild(d);
-  c.scrollTop = c.scrollHeight;
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
   return d;
 }
 
@@ -555,7 +987,8 @@ function qa(q) {
 
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('cinput');
-  ta.addEventListener('input', () => { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight,120)+'px'; });
+  if (!ta) return;
+  ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
   ta.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
 });
 </script>
