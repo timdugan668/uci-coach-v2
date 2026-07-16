@@ -808,21 +808,96 @@ function updateWeeklyPlan() {
   if (!userProfile?.goal_type) return;
   const hours = userProfile.hours_per_week || 10;
   const isHighVolume = hours >= 13;
+  const ftp = userProfile.ftp || 215;
+  const weight = userProfile.weight || 80;
+  const isUCI = userProfile.goal_type === 'uci_qualifier';
+  const isGranFondo = userProfile.goal_type === 'gran_fondo' || isUCI;
+
+  // HR zones based on FTP (estimated max HR from FTP)
+  const estMaxHR = Math.round(ftp / 1.22);
+  const z1hr = Math.round(estMaxHR * 0.60);
+  const z2hr = Math.round(estMaxHR * 0.72);
+  const z3hr = Math.round(estMaxHR * 0.83);
+  const z4lo = Math.round(estMaxHR * 0.88);
+  const z4hi = Math.round(estMaxHR * 0.95);
+  const z5hr = Math.round(estMaxHR * 0.98);
+
+  // Power zones
+  const z1w = Math.round(ftp * 0.55);
+  const z2w = Math.round(ftp * 0.75);
+  const z3w = Math.round(ftp * 0.90);
+  const z4low = Math.round(ftp * 0.91);
+  const z4hiw = Math.round(ftp * 1.05);
+  const z5w = Math.round(ftp * 1.20);
+
+  const tueDur = hours >= 10 ? '90' : '60';
+  const sunDur = isHighVolume ? '5–6' : '3.5–5';
+  const satSession = isUCI ? 'Fatigue climbs' : isGranFondo ? 'Climbing intervals' : 'Hard intervals';
 
   document.getElementById('week-content').innerHTML = `
     <div class="wk">
       <div class="dc d-rest"><div class="dn">Mon</div><div class="dt" style="color:var(--mist)">Rest</div><div class="dl">Off/stretch</div></div>
-      <div class="dc d-easy indoor"><div class="dn">Tue</div><div class="dt">Z2</div><div class="dl">${hours >= 10 ? '90' : '60'} min</div></div>
+      <div class="dc d-easy indoor"><div class="dn">Tue</div><div class="dt">Z2 Endurance</div><div class="dl">${tueDur} min</div></div>
       <div class="dc d-thresh"><div class="dn">Wed</div><div class="dt">Threshold</div><div class="dl">3×12 min Z4</div></div>
       <div class="dc d-easy"><div class="dn">Thu</div><div class="dt">Recovery</div><div class="dl">60 min Z1</div></div>
       <div class="dc d-social"><div class="dn">Fri</div><div class="dt">Social</div><div class="dl">2–3 h group</div></div>
-      <div class="dc d-fatigue"><div class="dn">Sat</div><div class="dt">${userProfile.goal_type === 'uci_qualifier' ? 'Fatigue climbs' : 'Intervals'}</div><div class="dl">2 h hard</div></div>
-      <div class="dc d-long"><div class="dn">Sun</div><div class="dt">Long ride</div><div class="dl">${isHighVolume ? '5–6' : '3–5'} h</div></div>
+      <div class="dc d-fatigue"><div class="dn">Sat</div><div class="dt">${satSession}</div><div class="dl">2 h outdoors</div></div>
+      <div class="dc d-long"><div class="dn">Sun</div><div class="dt">Long ride</div><div class="dl">${sunDur} h</div></div>
     </div>
+
+    <p class="slabel" style="margin-top:0.5rem">Day-by-day detail</p>
+    <div class="tl">
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--gravel)"></div>
+        <div class="tl-date">Mon — Rest</div>
+        <div class="tl-text">Full off day. Stretch, foam roll. Non-negotiable recovery — especially important for masters athletes. Let Sunday's work absorb.</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--green)"></div>
+        <div class="tl-date">Tue — Z2</div>
+        <div class="tl-text"><strong>${tueDur} min endurance.</strong> Keep HR under ${z2hr} bpm (${z2w}W est). Conversational pace — if you can't hold a sentence, ease off. 85–90 rpm cadence. Rollers or flat roads. Fan on if indoors.</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--yellow)"></div>
+        <div class="tl-date">Wed — Threshold</div>
+        <div class="tl-text"><strong>3×12 min Z4 intervals.</strong> Warm up 15 min. Each effort at ${z4lo}–${z4hi} bpm (${z4low}–${z4hiw}W est), 70–75 rpm. 5 min easy between. Cool down 15 min. ${ftp < 220 ? 'Indoors on rollers works well for this session.' : 'Use a consistent climb or flat road for each effort.'}</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--green)"></div>
+        <div class="tl-date">Thu — Recovery</div>
+        <div class="tl-text"><strong>60 min easy Z1.</strong> HR under ${z1hr} bpm (${z1w}W est). Flat roads only — no climbs. This ride exists to flush Wednesday's efforts. No heroics.</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:#6BA3E8"></div>
+        <div class="tl-date">Fri — Social</div>
+        <div class="tl-text"><strong>2–3 h group/social ride.</strong> ${isGranFondo ? 'Include at least one real climb — this pre-loads fatigue for Saturday's key session intentionally.' : 'Ride at group pace, enjoy the company. Mixed terrain.'} Target avg HR ${z2hr}–${z3hr} bpm across the ride.</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--orange-hi)"></div>
+        <div class="tl-date">Sat — ${satSession}</div>
+        <div class="tl-text">${isUCI ? 
+          `<strong>2 h fatigue climbing outdoors.</strong> 45–60 min easy warm-up, then 3×8 min hard climbing at ${z4lo}–${z4hi} bpm (${z4low}–${z4hiw}W est) on a sustained climb. Only 3 min recovery between efforts — the short recovery simulates climbing on tired legs at your target event. Must be outdoors.` :
+          isGranFondo ?
+          `<strong>2 h climbing intervals.</strong> Warm up 45 min, then 4×6 min hard climbing at ${z4lo}–${z4hi} bpm (${z4low}–${z4hiw}W est). 4 min easy between. Focus on seated climbing at 75–80 rpm.` :
+          `<strong>2 h interval session.</strong> Warm up 20 min, then 5×4 min Z5 efforts at ${z5hr}+ bpm (${z5w}+ W est), full recovery between. Builds your aerobic ceiling.`
+        }</div>
+      </div>
+      <div class="tl-row">
+        <div class="tl-dot" style="background:var(--orange)"></div>
+        <div class="tl-date">Sun — Long ride</div>
+        <div class="tl-text">${isUCI ?
+          `<strong>${sunDur} h race simulation.</strong> Build toward ${Math.round((hours >= 13 ? 130 : 110))} km with ${Math.round((hours >= 13 ? 1800 : 1400))} m climbing. Structure like your target event: big climb early, flat Z2 recovery section, second climb when fatigued. Keep avg HR under ${z2hr} bpm (${z2w}W est). Eat every 25 min from the gun — practise your race-day nutrition.` :
+          isGranFondo ?
+          `<strong>${sunDur} h endurance ride.</strong> ${Math.round((hours >= 13 ? 100 : 80))} km with ${Math.round((hours >= 13 ? 1200 : 800))} m climbing. Z2 pace throughout — HR under ${z2hr} bpm. Include one sustained climb. Eat every 30 min.` :
+          `<strong>${sunDur} h long Z2 ride.</strong> Build distance and time in the saddle. HR under ${z2hr} bpm throughout. Flat to rolling terrain. Eat and drink consistently.`
+        }</div>
+      </div>
+    </div>
+
     <div class="box box-orange">
-      <strong>Weekly target: ~${hours * 55}–${hours * 65} TSS.</strong> 
-      ${userProfile.goal_type === 'uci_qualifier' ? 'Saturday fatigue climbing is your most race-specific session — protect it.' : 'Sunday long ride is your most important session of the week.'}
-      Ask the coach to get a detailed day-by-day breakdown personalised to your goal.
+      <strong>Weekly load: ~${hours * 55}–${hours * 65} TSS.</strong>
+      ${isUCI ? 'Saturday fatigue climbing is your most race-specific session — protect it above all others.' : 'Sunday long ride is your most important session of the week.'}
+      ${ftp ? ` All targets based on your ${ftp}W FTP (${(ftp/weight).toFixed(2)} W/kg).` : ' Update your FTP in Profile for more accurate targets.'}
     </div>
   `;
 }
