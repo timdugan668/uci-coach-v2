@@ -406,6 +406,7 @@ select:focus { border-color:var(--orange); }
     <button class="nav-tab" onclick="show('week',this)">This week</button>
     <button class="nav-tab" onclick="show('zones',this)">Zones</button>
     <button class="nav-tab" onclick="show('goals',this)">My goal</button>
+    <button class="nav-tab" onclick="show('profile',this)">Profile</button>
     <button class="nav-tab" onclick="show('coach',this)">Ask coach</button>
   </nav>
 
@@ -466,6 +467,63 @@ select:focus { border-color:var(--orange); }
       <div class="box box-orange">No goal set yet. Complete onboarding to set your training goal.</div>
     </div>
     <button class="btn-primary" style="margin-top:1rem" onclick="editGoal()">Update my goal</button>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="profile" class="panel">
+    <p class="slabel">My profile</p>
+    <div class="box box-orange" id="profile-display">Loading...</div>
+
+    <p class="slabel" style="margin-top:1.25rem">Edit profile</p>
+    <div class="field"><label>First name</label><input type="text" id="p-name" /></div>
+    <div class="form-row">
+      <div class="field"><label>Age</label><input type="number" id="p-age" min="18" max="80" /></div>
+      <div class="field"><label>Weight (kg)</label><input type="number" id="p-weight" min="40" max="150" /></div>
+    </div>
+    <div class="field"><label>FTP (watts)</label><input type="number" id="p-ftp" min="100" max="500" /><div class="field-hint">Leave blank to estimate from Strava HR data</div></div>
+    <div class="field"><label>Hours per week</label>
+      <select id="p-hours">
+        <option value="4">4–6 hours</option>
+        <option value="7">7–9 hours</option>
+        <option value="10">10–12 hours</option>
+        <option value="13">13–15 hours</option>
+        <option value="16">16+ hours</option>
+      </select>
+    </div>
+    <div class="field"><label>Power meter</label>
+      <select id="p-power">
+        <option value="no">No — heart rate only</option>
+        <option value="yes">Yes — power meter</option>
+        <option value="smart">Smart trainer with power</option>
+      </select>
+    </div>
+    <div class="field"><label>Experience level</label>
+      <select id="p-experience">
+        <option value="beginner">Beginner</option>
+        <option value="intermediate">Intermediate</option>
+        <option value="advanced">Advanced</option>
+        <option value="elite">Elite</option>
+      </select>
+    </div>
+
+    <p class="slabel" style="margin-top:1.25rem">My goal</p>
+    <div class="field"><label>Goal type</label>
+      <select id="p-goal-type">
+        <option value="uci_qualifier">UCI Gran Fondo Worlds Qualifier</option>
+        <option value="gran_fondo">Gran Fondo</option>
+        <option value="fitness">General Fitness</option>
+        <option value="century">Century Ride</option>
+      </select>
+    </div>
+    <div class="field"><label>Target event</label><input type="text" id="p-event" placeholder="e.g. Amy's Gran Fondo, Lorne" /></div>
+    <div class="field"><label>Event date</label><input type="date" id="p-event-date" /></div>
+
+    <button class="btn-primary" onclick="saveProfileEdits()">Save changes</button>
+    <div class="field-hint success" id="profile-saved" style="margin-top:0.75rem;display:none;text-align:center">✓ Profile saved!</div>
+
+    <div style="margin-top:2rem;padding-top:1.25rem;border-top:1px solid var(--gravel)">
+      <button class="skip-btn" onclick="if(confirm('Sign out of VAMIQ?')) sb.auth.signOut()">Sign out</button>
+    </div>
   </div>
 
   <!-- COACH -->
@@ -802,6 +860,54 @@ function updateCoachWelcome() {
 
 function editGoal() { showScreen('onboarding'); nextStep(2); }
 
+function loadProfileTab() {
+  if (!userProfile) return;
+  const p = userProfile;
+  document.getElementById('p-name').value = p.name || '';
+  document.getElementById('p-age').value = p.age || '';
+  document.getElementById('p-weight').value = p.weight || '';
+  document.getElementById('p-ftp').value = p.ftp || '';
+  document.getElementById('p-hours').value = p.hours_per_week || '10';
+  document.getElementById('p-power').value = p.has_power_meter || 'no';
+  document.getElementById('p-experience').value = p.experience || 'intermediate';
+  document.getElementById('p-goal-type').value = p.goal_type || 'uci_qualifier';
+  document.getElementById('p-event').value = p.goal_event || '';
+  document.getElementById('p-event-date').value = p.goal_date || '';
+
+  const goalLabels = { uci_qualifier:'UCI Gran Fondo Worlds Qualifier', gran_fondo:'Gran Fondo', fitness:'General Fitness', century:'Century Ride' };
+  const days = p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/86400000) : null;
+  document.getElementById('profile-display').innerHTML = 
+    `<strong>${p.name||'Athlete'}</strong> · Age ${p.age||'?'} · ${p.weight||'?'}kg · FTP ${p.ftp||'est.'}W<br>
+    <strong>Goal:</strong> ${goalLabels[p.goal_type]||'not set'}${p.goal_event?' — '+p.goal_event:''}<br>
+    ${p.goal_date?'<strong>Event date:</strong> '+new Date(p.goal_date).toLocaleDateString('en-AU',{day:'numeric',month:'long',year:'numeric'})+(days>0?' ('+days+' days away)':''):'No event date set'}`;
+}
+
+async function saveProfileEdits() {
+  const updates = {
+    name: document.getElementById('p-name').value.trim(),
+    age: parseInt(document.getElementById('p-age').value) || null,
+    weight: parseFloat(document.getElementById('p-weight').value) || null,
+    ftp: parseInt(document.getElementById('p-ftp').value) || null,
+    hours_per_week: parseInt(document.getElementById('p-hours').value) || null,
+    has_power_meter: document.getElementById('p-power').value,
+    experience: document.getElementById('p-experience').value,
+    goal_type: document.getElementById('p-goal-type').value,
+    goal_event: document.getElementById('p-event').value.trim(),
+    goal_date: document.getElementById('p-event-date').value || null,
+  };
+  await saveProfile({ ...userProfile, ...updates });
+  userProfile = { ...userProfile, ...updates };
+  updateGoalDisplay();
+  updateWeeklyPlan();
+  updateCountdowns();
+  updateCoachWelcome();
+  if (updates.ftp) updateZones();
+  loadProfileTab();
+  const saved = document.getElementById('profile-saved');
+  saved.style.display = 'block';
+  setTimeout(() => saved.style.display = 'none', 3000);
+}
+
 function showUserMenu() {
   if (confirm(`Signed in as ${currentUser?.email}\n\nSign out?`)) {
     sb.auth.signOut();
@@ -814,6 +920,7 @@ function show(id, btn) {
   document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   btn.classList.add('active');
+  if (id === 'profile') loadProfileTab();
 }
 
 // ── STRAVA ──
