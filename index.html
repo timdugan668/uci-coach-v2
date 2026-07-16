@@ -551,6 +551,16 @@ select:focus { border-color:var(--orange); }
 </div>
 
 <script>
+// Hard timeout — if still loading after 4 seconds, force auth screen
+setTimeout(() => {
+  const loading = document.getElementById('loading');
+  const auth = document.getElementById('auth');
+  if (loading && loading.style.display !== 'none') {
+    loading.style.display = 'none';
+    auth.style.display = 'flex';
+  }
+}, 4000);
+
 // ── SUPABASE ──
 const SUPABASE_URL = 'https://brkwipcywnsuqaufzwjx.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_vf3IPgGb3Yf02bCtPPGL3Q_khJ58s2b';
