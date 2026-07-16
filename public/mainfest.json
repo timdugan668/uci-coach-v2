@@ -1,0 +1,22 @@
+{
+  "name": "VAMIQ — AI Cycling Coach",
+  "short_name": "VAMIQ",
+  "description": "AI-powered cycling coach for UCI Gran Fondo qualifiers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E0F0D",
+  "theme_color": "#E8500A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
