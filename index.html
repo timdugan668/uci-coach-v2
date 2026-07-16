@@ -637,7 +637,8 @@ function selectGoal(goal) {
 function connectStrava() {
   const clientId = '263268';
   const redirectUri = encodeURIComponent('http://localhost');
-  window.location.href = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&approval_prompt=force&scope=activity:read_all`;
+  const url = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&approval_prompt=force&scope=activity:read_all`;
+  window.open(url, '_blank');
 }
 
 async function skipStrava() {
