@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tim's UCI Cycling Coach</title>
+<title>VAMIQ — AI Cycling Coach</title>
+<meta name="description" content="AI-powered cycling coach for UCI Gran Fondo qualifiers">
+<meta name="theme-color" content="#E8500A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VAMIQ">
+<link rel="manifest" href="/manifest.json">
 <style>
 :root {
   --black: #0E0F0D; --asphalt: #1C1E1A; --gravel: #2E3029;
@@ -27,7 +33,7 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
 #app { display: flex; flex-direction: column; min-height: 100vh; }
 
 .app-header { background: var(--asphalt); border-bottom: 1px solid var(--gravel); padding: 0 1.25rem; display: flex; align-items: center; gap: 12px; height: 56px; position: sticky; top: 0; z-index: 100; }
-.app-header h1 { font-family: var(--font-head); font-size: 17px; font-weight: normal; letter-spacing: -0.2px; }
+.app-header h1 { font-family: var(--font-head); font-size: 20px; font-weight: bold; letter-spacing: 2px; color: var(--orange); text-transform: uppercase; }
 .app-header .sub { font-size: 11px; color: var(--mist); display: none; }
 @media (min-width: 500px) { .app-header .sub { display: block; } }
 .header-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -142,8 +148,8 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
 <div id="app">
   <header class="app-header">
     <div>
-      <h1>Tim's UCI Coach</h1>
-      <div class="sub">Amy's Gran Fondo · Sep 2026 · UCI Worlds France · Aug 2027</div>
+      <h1>VAMIQ</h1>
+      <div class="sub">AI cycling coach · UCI Gran Fondo qualifier</div>
     </div>
     <div class="header-right">
       <div class="strava-pill" id="strava-pill">
@@ -166,7 +172,7 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
   <!-- DASHBOARD -->
   <div id="dashboard" class="panel active">
     <div class="box box-green" id="d-summary">
-      <strong>You're on track, Tim.</strong> Sync Strava to update your latest ride summary here.
+      <strong>Welcome to VAMIQ.</strong> Sync Strava to load your latest ride data.
     </div>
     <p class="slabel">Your numbers</p>
     <div class="cards">
@@ -270,7 +276,7 @@ body { background: var(--black); color: var(--white); font-family: var(--font-bo
   <!-- COACH -->
   <div id="coach" class="panel">
     <div class="chat-msgs" id="chat-msgs">
-      <div class="msg coach"><div class="mav">🚴</div><div class="mbub">G'day Tim! Fully loaded with your training plan, Amy's course details, and your Strava history. That 107 km ride last Saturday was a ripper — 22 PRs and controlled HR throughout. What do you want to work on?</div></div>
+      <div class="msg coach"><div class="mav">🚴</div><div class="mbub">G'day Tim! I'm VAMIQ, your AI cycling coach. I'm loaded with your training plan, Amy's course details, and your Strava history. That 107 km ride was a ripper — what do you want to work on today?</div></div>
     </div>
     <div class="chat-foot">
       <div class="qps">
