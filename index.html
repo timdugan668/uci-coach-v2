@@ -929,8 +929,10 @@ function updateDashboard(rides) {
     const targetDist = userProfile.goal_type === 'century' ? 100000 : 122000;
     const bestElev = Math.max(...outdoor.map(r=>r.total_elevation_gain));
     const targetElev = userProfile.goal_type === 'uci_qualifier' ? 1869 : 1200;
-    const bestTime = Math.max(...outdoor.map(r=>r.moving_time));
-    const targetTime = 270 * 60;
+    // Only use long outdoor rides (>50km) for time-based metrics
+    const longOutdoor = outdoor.filter(r => r.distance > 50000);
+    const bestTime = longOutdoor.length ? Math.max(...longOutdoor.map(r=>r.moving_time)) : 0;
+    const targetTime = 270 * 60; // 4h 30min in seconds
 
     const p1 = Math.min(Math.round(bestDist/targetDist*100), 95);
     const p2 = Math.min(Math.round(bestElev/targetElev*85), 90);
