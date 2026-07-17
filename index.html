@@ -294,35 +294,18 @@ select:focus { border-color:var(--orange); }
     <!-- Step 2: Your goal -->
     <div id="step-2" style="display:none">
       <div class="onboard-title">What's your goal?</div>
-      <div class="onboard-desc">Choose your primary training objective. You can always update this later.</div>
-      <div class="goal-cards">
-        <div class="goal-card" onclick="selectGoal('uci_qualifier')" id="goal-uci_qualifier">
-          <div class="icon">🏆</div>
-          <div class="name">UCI Gran Fondo</div>
-          <div class="desc">Qualify for Worlds</div>
-        </div>
-        <div class="goal-card" onclick="selectGoal('gran_fondo')" id="goal-gran_fondo">
-          <div class="icon">🚴</div>
-          <div class="name">Gran Fondo</div>
-          <div class="desc">Complete or podium</div>
-        </div>
-        <div class="goal-card" onclick="selectGoal('fitness')" id="goal-fitness">
-          <div class="icon">💪</div>
-          <div class="name">Fitness</div>
-          <div class="desc">Get fitter, lose weight</div>
-        </div>
-        <div class="goal-card" onclick="selectGoal('century')" id="goal-century">
-          <div class="icon">🎯</div>
-          <div class="name">Century ride</div>
-          <div class="desc">Complete 100km+</div>
-        </div>
+      <div class="onboard-desc">Describe your cycling goal in your own words — be as specific as you like. The more detail you give, the better your coach can help.</div>
+      <div class="field">
+        <label>Your goal</label>
+        <textarea id="ob-goal-text" rows="4" placeholder="e.g. I want to qualify for the UCI Gran Fondo World Championships in France in August 2027. My first step is to finish in the top 25% at Amy's Gran Fondo in Lorne on 13 September 2026..." style="width:100%;background:var(--gravel);border:1px solid #3E4239;border-radius:var(--r);padding:10px 12px;color:var(--white);font-size:14px;outline:none;resize:vertical;font-family:var(--font-body);line-height:1.5"></textarea>
+        <div class="field-hint">Tell your coach your target event, date, and what success looks like to you.</div>
       </div>
-      <div class="field" id="event-field" style="display:none">
-        <label>Target event name</label>
+      <div class="field">
+        <label>Target event name <span style="font-weight:400;text-transform:none;font-size:11px">(optional)</span></label>
         <input type="text" id="ob-event" placeholder="e.g. Amy's Gran Fondo, Lorne" />
       </div>
-      <div class="field" id="event-date-field" style="display:none">
-        <label>Event date</label>
+      <div class="field">
+        <label>Event date <span style="font-weight:400;text-transform:none;font-size:11px">(optional)</span></label>
         <input type="date" id="ob-event-date" />
       </div>
       <div class="btn-row">
@@ -507,13 +490,9 @@ select:focus { border-color:var(--orange); }
     </div>
 
     <p class="slabel" style="margin-top:1.25rem">My goal</p>
-    <div class="field"><label>Goal type</label>
-      <select id="p-goal-type">
-        <option value="uci_qualifier">UCI Gran Fondo Worlds Qualifier</option>
-        <option value="gran_fondo">Gran Fondo</option>
-        <option value="fitness">General Fitness</option>
-        <option value="century">Century Ride</option>
-      </select>
+    <div class="field">
+      <label>Describe your goal</label>
+      <textarea id="p-goal-text" rows="4" placeholder="e.g. I want to qualify for UCI Gran Fondo Worlds..." style="width:100%;background:var(--gravel);border:1px solid #3E4239;border-radius:var(--r);padding:10px 12px;color:var(--white);font-size:14px;outline:none;resize:vertical;font-family:var(--font-body);line-height:1.5"></textarea>
     </div>
     <div class="field"><label>Target event</label><input type="text" id="p-event" placeholder="e.g. Amy's Gran Fondo, Lorne" /></div>
     <div class="field"><label>Event date</label><input type="date" id="p-event-date" /></div>
@@ -757,12 +736,21 @@ async function submitStravaCode() {
 }
 
 async function completeOnboarding(stravaData) {
+  const goalText = document.getElementById('ob-goal-text')?.value.trim() || '';
+  // Auto-detect goal type from free text
+  const gtLower = goalText.toLowerCase();
+  let detectedGoalType = 'fitness';
+  if (gtLower.includes('uci') || gtLower.includes('world') || gtLower.includes('qualify') || gtLower.includes('qualifier')) detectedGoalType = 'uci_qualifier';
+  else if (gtLower.includes('gran fondo') || gtLower.includes('granfondo') || gtLower.includes('fondo')) detectedGoalType = 'gran_fondo';
+  else if (gtLower.includes('century') || gtLower.includes('100km') || gtLower.includes('100 km')) detectedGoalType = 'century';
+
   const profile = {
     name: document.getElementById('ob-name').value.trim(),
     age: parseInt(document.getElementById('ob-age').value) || null,
     weight: parseFloat(document.getElementById('ob-weight').value) || null,
     experience: document.getElementById('ob-experience').value,
-    goal_type: selectedGoal,
+    goal_type: detectedGoalType,
+    goal_text: goalText,
     goal_event: document.getElementById('ob-event')?.value || '',
     goal_date: document.getElementById('ob-event-date')?.value || null,
     hours_per_week: parseInt(document.getElementById('ob-hours').value) || null,
@@ -966,7 +954,7 @@ function loadProfileTab() {
   document.getElementById('p-hours').value = p.hours_per_week || '10';
   document.getElementById('p-power').value = p.has_power_meter || 'no';
   document.getElementById('p-experience').value = p.experience || 'intermediate';
-  document.getElementById('p-goal-type').value = p.goal_type || 'uci_qualifier';
+  document.getElementById('p-goal-text').value = p.goal_text || '';
   document.getElementById('p-event').value = p.goal_event || '';
   document.getElementById('p-event-date').value = p.goal_date || '';
 
@@ -987,7 +975,7 @@ async function saveProfileEdits() {
     hours_per_week: parseInt(document.getElementById('p-hours').value) || null,
     has_power_meter: document.getElementById('p-power').value,
     experience: document.getElementById('p-experience').value,
-    goal_type: document.getElementById('p-goal-type').value,
+    goal_text: document.getElementById('p-goal-text').value.trim(),
     goal_event: document.getElementById('p-event').value.trim(),
     goal_date: document.getElementById('p-event-date').value || null,
   };
@@ -1165,12 +1153,15 @@ ATHLETE PROFILE:
 - Power meter: ${p.has_power_meter||'unknown'}
 - Training hours/week: ${p.hours_per_week||'unknown'}h
 
-GOAL:
+GOAL (in athlete's own words):
+${p.goal_text || 'Not specified'}
+
+GOAL SUMMARY:
 - Type: ${goalLabels[p.goal_type]||'not set'}
 - Event: ${p.goal_event||'not specified'}
 - Date: ${p.goal_date||'not set'}${days?' ('+days+' days away)':''}
 
-Be specific, practical and encouraging. Adapt all advice to this athlete's goal, fitness level and available training time. If goal is UCI Gran Fondo qualifier, focus on qualifying strategy, pacing, climbing endurance. If goal is fitness or century, focus on base building and completion. Australian casual tone. Concise but actionable.`;
+IMPORTANT: The athlete's goal description above is the most important context. Read it carefully and tailor ALL coaching advice specifically to what they have described. If they mention a specific event, date, qualification standard or performance target, focus your coaching on that. Be specific, practical and encouraging. Australian casual tone. Concise but actionable.`;
 }
 
 async function send() {
