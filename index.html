@@ -1309,6 +1309,9 @@ function buildSystemPrompt() {
   const goalLabels = { uci_qualifier:'UCI Gran Fondo Worlds qualifier', gran_fondo:'Gran Fondo completion', fitness:'general fitness', century:'century ride (100km+)' };
   const days = p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/86400000) : null;
 
+  const rideContext = window.CURRENT_RIDE_CONTEXT ? ("\n\n" + window.CURRENT_RIDE_CONTEXT) : "";
+  window.CURRENT_RIDE_CONTEXT = null; // clear after use
+
   return `You are VAMIQ, an expert AI cycling coach. You adapt to every athlete's individual goals and data.
 
 ATHLETE PROFILE:
@@ -1396,6 +1399,8 @@ document.addEventListener('DOMContentLoaded', () => {
 let calStartDate = new Date();
 let currentWeekOffset = 0;
 let leafletMap = null;
+let currentRideData = null;
+let currentRideStreams = null;
 
 const TRAINING_TYPES = {
   0: 'rest',    // Mon
@@ -1640,6 +1645,10 @@ async function openRide(activityId) {
     const act = await actRes.json();
     const streams = await streamRes.json();
 
+    // Store for coach
+    currentRideData = act;
+    currentRideStreams = streams;
+
     // Header
     document.getElementById('modal-title').textContent = act.name || 'Ride';
     document.getElementById('modal-date').textContent = act.start_date_local
@@ -1762,6 +1771,114 @@ async function openRide(activityId) {
   } catch(e) {
     document.getElementById('modal-stats').innerHTML = `<p style="color:#FF8585;font-size:13px">Error loading ride: ${e.message}</p>`;
   }
+}
+
+function askCoachAboutRide() {
+  if (!currentRideData) return;
+
+  const act = currentRideData;
+  const streams = currentRideStreams || {};
+  const km = act.distance ? (act.distance/1000).toFixed(1) : '?';
+  const elev = act.total_elevation_gain ? Math.round(act.total_elevation_gain) : '?';
+  const mins = act.moving_time ? Math.round(act.moving_time/60) : 0;
+  const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
+  const date = act.start_date_local ? new Date(act.start_date_local).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'}) : 'unknown date';
+
+  // Build HR zone breakdown
+  let hrZoneText = '';
+  if (streams.heartrate?.data && userProfile?.ftp) {
+    const hrData = streams.heartrate.data;
+    const maxHRest = Math.round(userProfile.ftp/1.22);
+    const hrZones = [
+      { name:'Z1 Recovery', max: maxHRest*0.60 },
+      { name:'Z2 Endurance', max: maxHRest*0.72 },
+      { name:'Z3 Tempo', max: maxHRest*0.83 },
+      { name:'Z4 Threshold', max: maxHRest*0.95 },
+      { name:'Z5+ VO2max', max: 999 }
+    ];
+    const hrCounts = [0,0,0,0,0];
+    hrData.forEach(hr => {
+      for (let i=0;i<hrZones.length;i++) { if(hr<=hrZones[i].max){hrCounts[i]++;break;} }
+    });
+    const hrTotal = hrData.length || 1;
+    hrZoneText = '\nHR Zone breakdown:\n' + hrZones.map((z,i) =>
+      '  ' + z.name + ': ' + Math.round(hrCounts[i]/hrTotal*100) + '% (' + hrCounts[i] + ' data points)'
+    ).join('\n');
+  }
+
+    // Elevation profile summary
+  let elevText = '';
+  if (streams.altitude?.data) {
+    const alt = streams.altitude.data;
+    const min = Math.min(...alt), max = Math.max(...alt);
+    elevText = `
+Elevation: min ${Math.round(min)}m, max ${Math.round(max)}m, total gain ${elev}m`;
+  }
+
+  // Speed/cadence/power summary
+  let streamText = '';
+  if (streams.velocity_smooth?.data) {
+    const speeds = streams.velocity_smooth.data.filter(v=>v>0);
+    const avgSpeed = speeds.reduce((a,b)=>a+b,0)/speeds.length;
+    const maxSpeed = Math.max(...speeds);
+    streamText += `
+Avg speed: ${(avgSpeed*3.6).toFixed(1)} km/h, Max speed: ${(maxSpeed*3.6).toFixed(1)} km/h`;
+  }
+  if (streams.cadence?.data) {
+    const cads = streams.cadence.data.filter(c=>c>0);
+    const avgCad = Math.round(cads.reduce((a,b)=>a+b,0)/cads.length);
+    streamText += `
+Avg cadence: ${avgCad} rpm`;
+  }
+  if (streams.watts?.data) {
+    const watts = streams.watts.data.filter(w=>w>0);
+    const avgW = Math.round(watts.reduce((a,b)=>a+b,0)/watts.length);
+    const maxW = Math.round(Math.max(...watts));
+    const normalised = Math.round(Math.sqrt(Math.sqrt(watts.reduce((s,w)=>s+Math.pow(w,4),0)/watts.length)));
+    streamText += `
+Avg power: ${avgW}W, Max power: ${maxW}W, Normalised power: ${normalised}W`;
+  }
+  if (streams.temp?.data) {
+    const temps = streams.temp.data;
+    const avgTemp = Math.round(temps.reduce((a,b)=>a+b,0)/temps.length);
+    streamText += `
+Avg temperature: ${avgTemp}°C`;
+  }
+
+  // Segments
+  let segText = '';
+  if (act.segment_efforts?.length) {
+    segText = "\nSegment efforts:\n" + act.segment_efforts.slice(0,10).map(s => {
+      const t = s.moving_time;
+      const time = t>=60?Math.floor(t/60)+'m '+(t%60)+'s':t+'s';
+      const pr = s.pr_rank===1?' (PR!)' : s.kom_rank===1?' (KOM!)' : s.pr_rank?` (${s.pr_rank}${s.pr_rank===2?'nd':s.pr_rank===3?'rd':'th'} best)` : '';
+      return '  ' + s.name + ': ' + time + pr;
+    }).join("\n");
+  }
+
+  // Build full ride context for coach
+  const rideContext = `DETAILED RIDE ANALYSIS REQUEST:
+Ride: ${act.name} on ${date}
+Distance: ${km} km | Duration: ${duration} | Elevation: ${elev}m
+Avg HR: ${act.average_heartrate?Math.round(act.average_heartrate)+' bpm':'unknown'} | Max HR: ${act.max_heartrate?Math.round(act.max_heartrate)+' bpm':'unknown'}
+Avg power: ${act.average_watts?Math.round(act.average_watts)+'W':'unknown'} | Suffer score: ${act.suffer_score||'unknown'}
+PRs: ${act.pr_count||0}
+${hrZoneText}${elevText}${streamText}${segText}`;
+
+  // Store as current ride context
+  window.CURRENT_RIDE_CONTEXT = rideContext;
+
+  // Close modal and open coach
+  document.getElementById('ride-modal').style.display = 'none';
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+
+  // Switch to coach tab
+  const coachTab = document.querySelectorAll('.nav-tab')[6];
+  show('coach', coachTab);
+
+  // Send to coach
+  document.getElementById('cinput').value = 'Please analyse this ride for me and tell me what it means for my training.';
+  send();
 }
 
 function drawElevation(altData) {
@@ -1900,9 +2017,10 @@ ${recentList}`;
 <div id="ride-modal" class="modal-overlay" style="display:none" onclick="closeModal(event)">
   <div class="modal" id="ride-modal-content">
     <div class="modal-header">
-      <div>
+      <div style="flex:1">
         <div class="modal-title" id="modal-title">Ride details</div>
         <div style="font-size:12px;color:var(--mist);margin-top:3px" id="modal-date"></div>
+        <button onclick="askCoachAboutRide()" style="margin-top:8px;background:var(--orange);border:none;border-radius:var(--r);color:#fff;font-size:12px;font-weight:700;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:5px">🚴 Ask coach</button>
       </div>
       <button class="modal-close" onclick="document.getElementById('ride-modal').style.display='none'">×</button>
     </div>
@@ -1926,6 +2044,7 @@ ${recentList}`;
       <div id="streams-stats" class="modal-stats"></div>
     </div>
   </div>
+
 </div>
 
 </body>
