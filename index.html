@@ -1328,7 +1328,16 @@ ${p.goal_text || 'Not specified'}
 GOAL SUMMARY:
 - Type: ${goalLabels[p.goal_type]||'not set'}
 - Event: ${p.goal_event||'not specified'}
-- Date: ${p.goal_date||'not set'}${days?' ('+days+' days away)':''}
+- Date: ${p.goal_date||'not set'}${days?' ('+days+' days away, '+Math.ceil(days/7)+' weeks)':''}
+- Current training phase: ${p.goal_date ? getPhase(new Date()) : 'unknown'}
+- Weeks to event: ${p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/(7*86400000)) : 'unknown'}
+
+WEEK-BY-WEEK ADAPTATION:
+- 8+ weeks out: Base phase — long Z2, 3x12min threshold, fatigue climbing 3x8min
+- 4-8 weeks out: Build phase — increase to 4x12min threshold, 4x8min fatigue climbs, longer long rides
+- 2-3 weeks out: Sharpen phase — reduce volume, maintain intensity, race simulations, full nutrition practice
+- Race week: Taper — 45min easy rides, short race-pace reminders, rest and prepare
+You MUST prescribe sessions appropriate to the current phase. Never give base-phase sessions when athlete is 2 weeks from their event.
 
 IMPORTANT: The athlete's goal description above is the most important context. Read it carefully and tailor ALL coaching advice specifically to what they have described. If they mention a specific event, date, qualification standard or performance target, focus your coaching on that. Be specific, practical and encouraging. Australian casual tone. Concise but actionable.`;
 }
@@ -1523,6 +1532,11 @@ function weekNav(dir) {
   renderWeekDetail();
 }
 
+function getWeeksOut(fromDate) {
+  if (!userProfile?.goal_date) return null;
+  return Math.ceil((new Date(userProfile.goal_date) - fromDate) / (7 * 86400000));
+}
+
 function renderWeekDetail() {
   const monday = getMonday(new Date());
   monday.setDate(monday.getDate() + currentWeekOffset * 7);
@@ -1534,7 +1548,9 @@ function renderWeekDetail() {
   const ftp = userProfile?.ftp || 215;
   const weight = userProfile?.weight || 80;
   const isUCI = userProfile?.goal_type === 'uci_qualifier';
+  const isGranFondo = userProfile?.goal_type === 'gran_fondo' || isUCI;
   const phase = getPhase(monday);
+  const weeksOut = getWeeksOut(monday);
 
   const z1hr = Math.round(ftp/1.22*0.60);
   const z2hr = Math.round(ftp/1.22*0.72);
@@ -1559,21 +1575,43 @@ function renderWeekDetail() {
 
     let detail = '';
     if (isRace) {
-      detail = `<strong>🏁 RACE DAY — ${userProfile.goal_event||'Your event'}!</strong> Everything you have trained for. Execute your pacing plan. Good luck!`;
-    } else if (type === 'rest') {
-      detail = 'Full rest day. Stretch, foam roll. Non-negotiable recovery. Let the training absorb.';
-    } else if (type === 'easy') {
-      detail = `<strong>${i===1?'90':'60'} min Z2 endurance.</strong> HR under ${z2hr} bpm · ${z2w}W est. Conversational pace, 85–90 rpm. Fan on if indoors.`;
-    } else if (type === 'threshold') {
-      detail = `<strong>3×12 min threshold intervals.</strong> Warm up 15 min. Each effort at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W est. 70–75 rpm. 5 min easy between. Cool down 15 min.`;
-    } else if (type === 'social') {
-      detail = `<strong>2–3 h social/group ride.</strong> Include at least one real climb. Target avg HR ${z2hr}–${z3hr} bpm across the ride. Pre-loads fatigue for Saturday.`;
-    } else if (type === 'fatigue') {
-      detail = isUCI
-        ? `<strong>2 h fatigue climbing.</strong> 45–60 min easy warm-up then 3×8 min hard climbing at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. Only 3 min recovery between. Simulates climbing on tired legs. Must be outdoors.`
-        : `<strong>2 h interval session.</strong> Warm up 45 min then 4×6 min at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. 4 min easy between.`;
-    } else if (type === 'long') {
-      detail = `<strong>4.5–5.5 h long ride.</strong> Build toward ${isUCI?'120–130 km, 1,500–1,800 m climbing':'80–120 km'}. Z2 pace — HR under ${z2hr} bpm · ${z2w}W. ${isUCI?'Structure like your target event: big climb early, flat recovery, second climb when fatigued. ':''}Eat every 25 min from the start.`;
+      detail = `<strong>🏁 RACE DAY — ${userProfile.goal_event||'Your event'}!</strong> Everything you have trained for. Stick to your pacing plan. Enjoy every kilometre!`;
+    } else if (weeksOut !== null && weeksOut <= 1 && weeksOut > 0) {
+      // Race week — taper
+      if (type === 'rest') detail = 'Rest day. Sleep well, stay off your feet, trust your training.';
+      else if (type === 'easy') detail = `<strong>RACE WEEK — 45 min easy spin only.</strong> HR under ${z1hr} bpm. Just keep the legs ticking over. No effort whatsoever.`;
+      else if (type === 'threshold') detail = `<strong>RACE WEEK — 30 min easy + 3×5 min at race pace.</strong> Just a reminder to your legs what hard feels like. ${z4low}–${z4hiw}W est. Nothing more.`;
+      else if (type === 'social') detail = 'RACE WEEK — skip the group ride or do 45 min very easy only. Protect your legs.';
+      else if (type === 'fatigue') detail = `<strong>RACE WEEK — 60 min easy with 3×3 min at race pace.</strong> HR under ${z3hr} bpm. Short, sharp, done. Rest the remainder of the day.`;
+      else if (type === 'long') detail = `<strong>RACE WEEK — 90 min easy ride Saturday.</strong> Z1–Z2 only, HR under ${z2hr} bpm. Check your bike, prepare your kit and nutrition. Early night.`;
+    } else if (weeksOut !== null && weeksOut <= 3 && weeksOut > 1) {
+      // Sharpen phase — 2-3 weeks out
+      if (type === 'rest') detail = 'Rest day. Recovery is training. Sleep and nutrition are critical in the final weeks.';
+      else if (type === 'easy') detail = `<strong>SHARPEN — 75 min Z2.</strong> HR under ${z2hr} bpm · ${z2w}W. Reduce volume slightly but keep the quality.`;
+      else if (type === 'threshold') detail = `<strong>SHARPEN — 3×10 min race pace.</strong> Slightly shorter than base phase. ${z4low}–${z4hiw}W est · ${z4lo}–${z4hi} bpm. Focus on smooth, efficient effort.`;
+      else if (type === 'social') detail = `<strong>SHARPEN — 2 h social ride with purpose.</strong> Include one climb at race pace effort. Practice your race nutrition — eat every 25 min.`;
+      else if (type === 'fatigue') detail = `<strong>SHARPEN — Race simulation.</strong> 60 min easy then 2×15 min at race pace (${z4low}–${z4hiw}W). This is your last big fatigue effort before taper. Make it count.`;
+      else if (type === 'long') detail = `<strong>SHARPEN — Final long ride.</strong> ${isUCI?'100–110 km with 1,400–1,600 m climbing':'70–90 km'}. Ride the first half at Z2, second half at race pace. Practice your full race nutrition strategy.`;
+    } else if (weeksOut !== null && weeksOut <= 8 && weeksOut > 3) {
+      // Build phase — 4-8 weeks out
+      if (type === 'rest') detail = 'Rest day. Foam roll, stretch, good sleep. Build phase demands proper recovery.';
+      else if (type === 'easy') detail = `<strong>BUILD — 90 min Z2.</strong> HR under ${z2hr} bpm · ${z2w}W. Solid base work. 85–90 rpm.`;
+      else if (type === 'threshold') detail = `<strong>BUILD — 4×12 min threshold.</strong> Warm up 15 min. ${z4low}–${z4hiw}W · ${z4lo}–${z4hi} bpm. 5 min easy between. Building from 3 to 4 reps now.`;
+      else if (type === 'social') detail = `<strong>BUILD — 2.5–3 h social ride.</strong> Include 2 proper climbs. Push the pace on climbs — this is build phase, not base. Avg HR ${z2hr}–${z3hr} bpm.`;
+      else if (type === 'fatigue') detail = isUCI
+        ? `<strong>BUILD — Fatigue climbing.</strong> 60 min easy then 4×8 min hard climbing at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. Only 3 min recovery. One more rep than base phase.`
+        : `<strong>BUILD — 2.5 h interval ride.</strong> Warm up 45 min then 5×6 min at ${z4lo}–${z4hi} bpm. 4 min easy between.`;
+      else if (type === 'long') detail = `<strong>BUILD — Long ride with climbing.</strong> ${isUCI?'115–125 km, 1,600–1,900 m climbing':'90–110 km'}. ${isUCI?'Full Amy\u2019s course simulation — big climb early, flat recovery, second climb on tired legs. ':''}Eat every 25 min. This is your key session.`;
+    } else {
+      // Base phase — more than 8 weeks out
+      if (type === 'rest') detail = 'Full rest day. Stretch, foam roll. Non-negotiable recovery. Let the training absorb.';
+      else if (type === 'easy') detail = `<strong>BASE — ${i===1?'90':'60'} min Z2 endurance.</strong> HR under ${z2hr} bpm · ${z2w}W. Conversational pace, 85–90 rpm. Fan on if indoors.`;
+      else if (type === 'threshold') detail = `<strong>BASE — 3×12 min threshold intervals.</strong> Warm up 15 min. ${z4low}–${z4hiw}W · ${z4lo}–${z4hi} bpm. 70–75 rpm. 5 min easy between. Cool down 15 min.`;
+      else if (type === 'social') detail = `<strong>BASE — 2–3 h social/group ride.</strong> Include at least one real climb. Target avg HR ${z2hr}–${z3hr} bpm. Pre-loads fatigue for Saturday.`;
+      else if (type === 'fatigue') detail = isUCI
+        ? `<strong>BASE — 2 h fatigue climbing.</strong> 45–60 min easy then 3×8 min hard climbing at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. Only 3 min recovery. Must be outdoors.`
+        : `<strong>BASE — 2 h interval session.</strong> Warm up 45 min then 4×6 min at ${z4lo}–${z4hi} bpm. 4 min easy between.`;
+      else if (type === 'long') detail = `<strong>BASE — Long ride.</strong> Build toward ${isUCI?'110–120 km, 1,400–1,600 m climbing':'70–100 km'}. Z2 pace — HR under ${z2hr} bpm · ${z2w}W. ${isUCI?'Include a big climb and a second climb when tired. ':''}Eat every 25 min.`;
     }
 
     const dotColor = isRace ? 'var(--orange)' : DAY_COLORS[type] || 'var(--gravel)';
@@ -1584,9 +1622,11 @@ function renderWeekDetail() {
     </div>`);
   }
 
+  const weeksOutText = weeksOut !== null && weeksOut > 0 ? ` · <strong>${weeksOut} weeks to ${userProfile.goal_event||'race day'}</strong>` : weeksOut === 0 ? ' · <strong>Race week!</strong>' : '';
+  const boxColour = phase==='Base'?'green':phase==='Build'?'yellow':phase==='Sharpen'||phase==='Taper'?'orange':'orange';
   document.getElementById('week-detail-content').innerHTML = `
-    <div class="box box-${phase==='Base'?'green':phase==='Build'?'yellow':phase==='Sharpen'?'orange':'orange'}" style="margin-bottom:1rem">
-      <strong>${phase} phase</strong> · ${getPhaseDesc(phase)}
+    <div class="box box-${boxColour}" style="margin-bottom:1rem">
+      <strong>${phase} phase</strong>${weeksOutText} · ${getPhaseDesc(phase)}
     </div>
     <div class="tl">${days.join('')}</div>
   `;
