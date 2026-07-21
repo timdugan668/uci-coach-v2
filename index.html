@@ -284,6 +284,10 @@ select:focus { border-color:var(--orange); }
         <div class="field-hint error" id="login-error"></div>
       </div>
       <button class="btn-primary" onclick="signIn()">Sign in</button>
+      <div style="text-align:center;margin-top:1rem">
+        <button onclick="forgotPassword()" style="background:none;border:none;color:var(--mist);font-size:12px;cursor:pointer;text-decoration:underline">Forgot password?</button>
+      </div>
+      <div class="field-hint success" id="reset-sent" style="display:none;text-align:center;margin-top:0.5rem">✓ Password reset email sent — check your inbox</div>
     </div>
     <div id="signup-form" style="display:none">
       <div class="field">
@@ -306,6 +310,27 @@ select:focus { border-color:var(--orange); }
         <div class="field-hint error" id="signup-error"></div>
       </div>
       <button class="btn-primary" id="signup-btn" onclick="signUp()" disabled>Create account</button>
+    </div>
+
+    <!-- Reset password form (hidden by default) -->
+    <div id="reset-form" style="display:none">
+      <p style="color:var(--fog);font-size:13px;margin-bottom:1.25rem;line-height:1.5">Enter your new password below.</p>
+      <div class="field">
+        <label>New password</label>
+        <input type="password" id="reset-password" placeholder="New password" oninput="checkResetPassword(this.value)" />
+        <div class="pw-rules" id="reset-pw-rules">
+          <div class="pw-rule fail" id="rp-len">✗ At least 8 characters</div>
+          <div class="pw-rule fail" id="rp-upper">✗ One uppercase letter</div>
+          <div class="pw-rule fail" id="rp-num">✗ One number</div>
+          <div class="pw-rule fail" id="rp-sym">✗ One symbol (!@#$%^&*)</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Confirm new password</label>
+        <input type="password" id="reset-confirm" placeholder="Confirm new password" />
+        <div class="field-hint error" id="reset-error"></div>
+      </div>
+      <button class="btn-primary" id="reset-btn" onclick="updatePassword()" disabled>Update password</button>
     </div>
   </div>
 </div>
@@ -683,9 +708,17 @@ function showScreen(screen) {
 // ── AUTH ──
 function switchTab(tab) {
   document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
-  event.target.classList.add('active');
+  if (event?.target) event.target.classList.add('active');
   document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('reset-form').style.display = tab === 'reset' ? 'block' : 'none';
+}
+
+function switchTabByName(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('signup-form').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('reset-form').style.display = tab === 'reset' ? 'block' : 'none';
 }
 
 function checkPassword(pw) {
@@ -706,12 +739,60 @@ function checkPassword(pw) {
   return allOk;
 }
 
+async function forgotPassword() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) {
+    document.getElementById('login-error').textContent = 'Please enter your email address first';
+    return;
+  }
+  document.getElementById('login-error').textContent = '';
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + '/?reset=true'
+  });
+  if (error) {
+    document.getElementById('login-error').textContent = error.message;
+  } else {
+    document.getElementById('reset-sent').style.display = 'block';
+    setTimeout(() => document.getElementById('reset-sent').style.display = 'none', 8000);
+  }
+}
+
 async function signIn() {
   const email = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
   document.getElementById('login-error').textContent = '';
   const { error } = await sb.auth.signInWithPassword({ email, password });
   if (error) document.getElementById('login-error').textContent = error.message;
+}
+
+function checkResetPassword(pw) {
+  const rules = {
+    'rp-len': pw.length >= 8,
+    'rp-upper': /[A-Z]/.test(pw),
+    'rp-num': /[0-9]/.test(pw),
+    'rp-sym': /[!@#$%^&*()_+\-=\[\]{};':"\|,.<>\/?]/.test(pw)
+  };
+  let allOk = true;
+  for (const [id, ok] of Object.entries(rules)) {
+    const el = document.getElementById(id);
+    if (el) { el.className = 'pw-rule ' + (ok ? 'ok' : 'fail'); el.textContent = (ok?'✓':'✗') + ' ' + el.textContent.slice(2); }
+    if (!ok) allOk = false;
+  }
+  document.getElementById('reset-btn').disabled = !allOk;
+}
+
+async function updatePassword() {
+  const password = document.getElementById('reset-password').value;
+  const confirm = document.getElementById('reset-confirm').value;
+  document.getElementById('reset-error').textContent = '';
+  if (password !== confirm) { document.getElementById('reset-error').textContent = 'Passwords do not match'; return; }
+  const { error } = await sb.auth.updateUser({ password });
+  if (error) {
+    document.getElementById('reset-error').textContent = error.message;
+  } else {
+    alert('Password updated! You are now signed in.');
+    await loadProfile();
+  }
 }
 
 async function signUp() {
