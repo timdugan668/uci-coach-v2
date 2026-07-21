@@ -1084,6 +1084,12 @@ function show(id, btn) {
   document.getElementById(id).classList.add('active');
   btn.classList.add('active');
   if (id === 'profile') loadProfileTab();
+  if (id === 'calendar') {
+    calStartDate = new Date();
+    renderCalendar();
+    document.getElementById('cal-month-view').style.display = 'block';
+    document.getElementById('cal-week-view').style.display = 'none';
+  }
 }
 
 // ── STRAVA ──
@@ -1735,17 +1741,7 @@ function closeModal(e) {
   }
 }
 
-// Override show() to init calendar
-const _show = show;
-function show(id, btn) {
-  _show(id, btn);
-  if (id === 'calendar') {
-    calStartDate = new Date();
-    renderCalendar();
-    document.getElementById('cal-month-view').style.display = 'block';
-    document.getElementById('cal-week-view').style.display = 'none';
-  }
-}
+// Calendar init handled in show()
 
 // Update renderRides to make rides clickable
 function renderRides(rides) {
