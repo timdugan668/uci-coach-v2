@@ -11,6 +11,8 @@
 <meta name="apple-mobile-web-app-title" content="VAMIQ">
 <link rel="manifest" href="/manifest.json">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 :root {
   --black:#0E0F0D; --asphalt:#1C1E1A; --gravel:#2E3029;
@@ -198,6 +200,59 @@ select:focus { border-color:var(--orange); }
 .edit-goal-btn { float:right; background:none; border:1px solid #5A2010; color:var(--orange-hi); font-size:11px; padding:3px 8px; border-radius:var(--r); cursor:pointer; }
 
 @media(max-width:500px){.panel{padding:1rem}.cards{grid-template-columns:repeat(2,1fr)}.wk{gap:4px}.dc{padding:6px 2px}.form-row{grid-template-columns:1fr}.goal-cards{grid-template-columns:1fr}}
+
+/* ── CALENDAR ── */
+.cal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+.cal-title { font-family:var(--font-head); font-size:18px; font-weight:normal; }
+.cal-nav-btn { background:var(--gravel); border:1px solid #3E4239; color:var(--fog); padding:6px 14px; border-radius:var(--r); cursor:pointer; font-size:16px; }
+.cal-nav-btn:hover { background:#3E4239; }
+.cal-months { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-bottom:1.25rem; }
+.cal-month { background:var(--asphalt); border:1px solid var(--gravel); border-radius:12px; overflow:hidden; cursor:pointer; transition:border-color 0.15s; }
+.cal-month:hover { border-color:var(--orange); }
+.cal-month.active { border-color:var(--orange); }
+.cal-month-header { padding:10px 14px; border-bottom:1px solid var(--gravel); display:flex; justify-content:space-between; align-items:center; }
+.cal-month-name { font-weight:600; font-size:14px; }
+.cal-month-phase { font-size:11px; color:var(--mist); }
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:8px; }
+.cal-day-label { font-size:9px; color:var(--mist); text-align:center; padding:2px 0; font-weight:600; }
+.cal-day { height:28px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:10px; cursor:pointer; position:relative; }
+.cal-day.empty { background:none; }
+.cal-day.rest { background:var(--gravel); color:var(--mist); }
+.cal-day.easy { background:#0D2B1C; color:var(--green); }
+.cal-day.threshold { background:#2A1A00; color:var(--yellow); }
+.cal-day.social { background:#0A1830; color:#6BA3E8; }
+.cal-day.fatigue { background:#1E0A00; color:var(--orange-hi); }
+.cal-day.long { background:#200800; color:var(--orange); }
+.cal-day.race { background:var(--orange-lo); color:var(--orange-hi); border:1px solid #5A2010; }
+.cal-day.today { outline:2px solid var(--orange); outline-offset:1px; }
+.cal-day.past { opacity:0.4; }
+
+/* Week detail */
+.week-nav { display:flex; align-items:center; gap:12px; margin-bottom:1.25rem; background:var(--asphalt); border:1px solid var(--gravel); border-radius:var(--r); padding:10px 14px; touch-action:pan-y; }
+.week-nav-btn { background:var(--gravel); border:1px solid #3E4239; color:var(--fog); padding:6px 14px; border-radius:var(--r); cursor:pointer; font-size:16px; flex-shrink:0; }
+.week-nav-btn:hover { background:#3E4239; }
+.week-title { flex:1; text-align:center; font-size:13px; font-weight:600; color:var(--white); }
+.week-subtitle { font-size:11px; color:var(--mist); text-align:center; margin-top:2px; }
+
+/* Ride detail modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:1000; display:flex; align-items:flex-end; justify-content:center; }
+.modal { background:var(--asphalt); border-radius:16px 16px 0 0; width:100%; max-width:720px; max-height:90vh; overflow-y:auto; padding:1.5rem; }
+.modal-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; }
+.modal-title { font-size:16px; font-weight:600; }
+.modal-close { background:var(--gravel); border:none; color:var(--fog); width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.modal-stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:8px; margin-bottom:1rem; }
+.modal-stat { background:var(--gravel); border-radius:var(--r); padding:8px; text-align:center; }
+.modal-stat .val { font-size:18px; font-weight:700; }
+.modal-stat .lbl { font-size:10px; color:var(--mist); margin-top:2px; }
+#route-map { height:220px; border-radius:var(--r); margin-bottom:1rem; background:var(--gravel); }
+.elev-chart { height:80px; background:var(--gravel); border-radius:var(--r); margin-bottom:1rem; position:relative; overflow:hidden; }
+.elev-fill { position:absolute; bottom:0; left:0; right:0; }
+.hr-zones-bar { height:16px; border-radius:var(--r); overflow:hidden; display:flex; margin-bottom:0.5rem; }
+.segment-row { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--gravel); font-size:12px; }
+.segment-row:last-child { border-bottom:none; }
+.seg-name { flex:1; color:var(--white); }
+.seg-time { color:var(--fog); }
+.seg-pr { color:var(--orange); font-weight:700; font-size:11px; }
 </style>
 </head>
 <body>
@@ -385,8 +440,8 @@ select:focus { border-color:var(--orange); }
 
   <nav class="app-nav">
     <button class="nav-tab active" onclick="show('dashboard',this)">Dashboard</button>
+    <button class="nav-tab" onclick="show('calendar',this)">Calendar</button>
     <button class="nav-tab" onclick="show('rides',this)">Rides</button>
-    <button class="nav-tab" onclick="show('week',this)">This week</button>
     <button class="nav-tab" onclick="show('zones',this)">Zones</button>
     <button class="nav-tab" onclick="show('goals',this)">My goal</button>
     <button class="nav-tab" onclick="show('profile',this)">Profile</button>
@@ -412,6 +467,30 @@ select:focus { border-color:var(--orange); }
     <div class="prog-wrap"><div class="prog-label"><span>Climbing capacity</span><span id="p2-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p2" style="width:0%;background:var(--yellow)"></div></div></div>
     <div class="prog-wrap"><div class="prog-label"><span>Endurance (time in saddle)</span><span id="p3-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p3" style="width:0%;background:var(--yellow)"></div></div></div>
     <div class="prog-wrap"><div class="prog-label"><span>Race pace readiness</span><span id="p4-pct">—</span></div><div class="prog-bg"><div class="prog-fill" id="p4" style="width:0%;background:var(--orange)"></div></div></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div id="calendar" class="panel">
+    <div id="cal-month-view">
+      <div class="cal-header">
+        <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+        <div class="cal-title" id="cal-range-title">Training Calendar</div>
+        <button class="cal-nav-btn" onclick="calNext()">›</button>
+      </div>
+      <div class="cal-months" id="cal-months-grid"></div>
+    </div>
+    <div id="cal-week-view" style="display:none">
+      <div class="week-nav" id="week-swipe">
+        <button class="week-nav-btn" onclick="weekNav(-1)">‹</button>
+        <div>
+          <div class="week-title" id="week-title">Your training week</div>
+          <div class="week-subtitle" id="week-date"></div>
+        </div>
+        <button class="week-nav-btn" onclick="weekNav(1)">›</button>
+      </div>
+      <div id="week-detail-content"></div>
+      <button class="skip-btn" style="margin-top:1rem" onclick="showCalMonth()">← Back to calendar</button>
+    </div>
   </div>
 
   <!-- RIDES -->
@@ -1225,6 +1304,552 @@ document.addEventListener('DOMContentLoaded', () => {
   ta.addEventListener('input', () => { ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,120)+'px'; });
   ta.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} });
 });
+
+// ── CALENDAR ──
+let calStartDate = new Date();
+let currentWeekOffset = 0;
+let leafletMap = null;
+
+const TRAINING_TYPES = {
+  0: 'rest',    // Mon
+  1: 'easy',    // Tue
+  2: 'threshold', // Wed
+  3: 'easy',    // Thu
+  4: 'social',  // Fri
+  5: 'fatigue', // Sat
+  6: 'long'     // Sun
+};
+
+const DAY_LABELS = { rest:'Rest', easy:'Z2', threshold:'Threshold', social:'Social', fatigue:'Fatigue climbs', long:'Long ride' };
+const DAY_COLORS = { rest:'var(--gravel)', easy:'var(--green)', threshold:'var(--yellow)', social:'#6BA3E8', fatigue:'var(--orange-hi)', long:'var(--orange)' };
+
+function getTrainingType(date) {
+  const dow = date.getDay(); // 0=Sun,1=Mon...6=Sat
+  const map = { 1:'rest', 2:'easy', 3:'threshold', 4:'easy', 5:'social', 6:'fatigue', 0:'long' };
+  return map[dow];
+}
+
+function getPhase(date) {
+  if (!userProfile?.goal_date) return 'Base';
+  const daysOut = Math.ceil((new Date(userProfile.goal_date) - date) / 86400000);
+  if (daysOut > 90) return 'Base';
+  if (daysOut > 42) return 'Build';
+  if (daysOut > 14) return 'Sharpen';
+  if (daysOut > 0) return 'Taper';
+  return 'Post-race';
+}
+
+function calPrev() {
+  calStartDate.setMonth(calStartDate.getMonth() - 1);
+  renderCalendar();
+}
+
+function calNext() {
+  calStartDate.setMonth(calStartDate.getMonth() + 1);
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-months-grid');
+  const today = new Date();
+  const months = [];
+
+  // Show 3 months starting from calStartDate
+  for (let m = 0; m < 3; m++) {
+    const d = new Date(calStartDate.getFullYear(), calStartDate.getMonth() + m, 1);
+    months.push(d);
+  }
+
+  document.getElementById('cal-range-title').textContent =
+    months[0].toLocaleDateString('en-AU',{month:'long',year:'numeric'}) + ' – ' +
+    months[2].toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+
+  grid.innerHTML = months.map(monthDate => {
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const monthName = monthDate.toLocaleDateString('en-AU',{month:'long',year:'numeric'});
+    const phase = getPhase(monthDate);
+    const phaseColors = {'Base':'var(--green)','Build':'var(--yellow)','Sharpen':'var(--orange)','Taper':'#6BA3E8','Post-race':'var(--mist)'};
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startPad = (firstDay + 6) % 7; // Mon=0
+
+    let daysHtml = ['Mo','Tu','We','Th','Fr','Sa','Su'].map(d => `<div class="cal-day-label">${d}</div>`).join('');
+
+    for (let i = 0; i < startPad; i++) daysHtml += '<div class="cal-day empty"></div>';
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const type = getTrainingType(date);
+      const isToday = date.toDateString() === today.toDateString();
+      const isPast = date < today && !isToday;
+      const isRace = userProfile?.goal_date && date.toDateString() === new Date(userProfile.goal_date).toDateString();
+      const cls = isRace ? 'race' : type;
+      const weekOffset = Math.floor((date - getMonday(today)) / (7 * 86400000));
+      daysHtml += `<div class="cal-day ${cls}${isToday?' today':''}${isPast?' past':''}" 
+        title="${isRace?'RACE DAY!':DAY_LABELS[type]}" 
+        onclick="showWeekFromDate('${date.toISOString()}')">${day}</div>`;
+    }
+
+    return `<div class="cal-month" onclick="showWeekFromDate('${new Date(year,month,1).toISOString()}')">
+      <div class="cal-month-header">
+        <div class="cal-month-name">${monthName}</div>
+        <div class="cal-month-phase" style="color:${phaseColors[phase]}">${phase}</div>
+      </div>
+      <div class="cal-grid">${daysHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function getMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  d.setHours(0,0,0,0);
+  return d;
+}
+
+function showWeekFromDate(isoDate) {
+  const date = new Date(isoDate);
+  const monday = getMonday(date);
+  const today = getMonday(new Date());
+  currentWeekOffset = Math.round((monday - today) / (7 * 86400000));
+  renderWeekDetail();
+  document.getElementById('cal-month-view').style.display = 'none';
+  document.getElementById('cal-week-view').style.display = 'block';
+}
+
+function showCalMonth() {
+  document.getElementById('cal-month-view').style.display = 'block';
+  document.getElementById('cal-week-view').style.display = 'none';
+}
+
+function weekNav(dir) {
+  currentWeekOffset += dir;
+  renderWeekDetail();
+}
+
+function renderWeekDetail() {
+  const monday = getMonday(new Date());
+  monday.setDate(monday.getDate() + currentWeekOffset * 7);
+
+  const fmt = (d) => d.toLocaleDateString('en-AU',{day:'2-digit',month:'2-digit',year:'numeric'});
+  document.getElementById('week-title').textContent = 'Your training week commencing Monday';
+  document.getElementById('week-date').textContent = fmt(monday);
+
+  const ftp = userProfile?.ftp || 215;
+  const weight = userProfile?.weight || 80;
+  const isUCI = userProfile?.goal_type === 'uci_qualifier';
+  const phase = getPhase(monday);
+
+  const z1hr = Math.round(ftp/1.22*0.60);
+  const z2hr = Math.round(ftp/1.22*0.72);
+  const z3hr = Math.round(ftp/1.22*0.83);
+  const z4lo = Math.round(ftp/1.22*0.88);
+  const z4hi = Math.round(ftp/1.22*0.95);
+  const z4low = Math.round(ftp*0.91);
+  const z4hiw = Math.round(ftp*1.05);
+  const z2w = Math.round(ftp*0.75);
+  const z1w = Math.round(ftp*0.55);
+  const z5w = Math.round(ftp*1.20);
+  const z5hr = Math.round(ftp/1.22*0.98);
+
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(d.getDate() + i);
+    const type = getTrainingType(d);
+    const isRace = userProfile?.goal_date && d.toDateString() === new Date(userProfile.goal_date).toDateString();
+    const isToday = d.toDateString() === new Date().toDateString();
+    const dayName = d.toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'short'});
+
+    let detail = '';
+    if (isRace) {
+      detail = `<strong>🏁 RACE DAY — ${userProfile.goal_event||'Your event'}!</strong> Everything you have trained for. Execute your pacing plan. Good luck!`;
+    } else if (type === 'rest') {
+      detail = 'Full rest day. Stretch, foam roll. Non-negotiable recovery. Let the training absorb.';
+    } else if (type === 'easy') {
+      detail = `<strong>${i===1?'90':'60'} min Z2 endurance.</strong> HR under ${z2hr} bpm · ${z2w}W est. Conversational pace, 85–90 rpm. Fan on if indoors.`;
+    } else if (type === 'threshold') {
+      detail = `<strong>3×12 min threshold intervals.</strong> Warm up 15 min. Each effort at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W est. 70–75 rpm. 5 min easy between. Cool down 15 min.`;
+    } else if (type === 'social') {
+      detail = `<strong>2–3 h social/group ride.</strong> Include at least one real climb. Target avg HR ${z2hr}–${z3hr} bpm across the ride. Pre-loads fatigue for Saturday.`;
+    } else if (type === 'fatigue') {
+      detail = isUCI
+        ? `<strong>2 h fatigue climbing.</strong> 45–60 min easy warm-up then 3×8 min hard climbing at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. Only 3 min recovery between. Simulates climbing on tired legs. Must be outdoors.`
+        : `<strong>2 h interval session.</strong> Warm up 45 min then 4×6 min at ${z4lo}–${z4hi} bpm · ${z4low}–${z4hiw}W. 4 min easy between.`;
+    } else if (type === 'long') {
+      detail = `<strong>4.5–5.5 h long ride.</strong> Build toward ${isUCI?'120–130 km, 1,500–1,800 m climbing':'80–120 km'}. Z2 pace — HR under ${z2hr} bpm · ${z2w}W. ${isUCI?'Structure like your target event: big climb early, flat recovery, second climb when fatigued. ':''}Eat every 25 min from the start.`;
+    }
+
+    const dotColor = isRace ? 'var(--orange)' : DAY_COLORS[type] || 'var(--gravel)';
+    days.push(`<div class="tl-row${isToday?' ':''}" style="${isToday?'background:var(--orange-lo);border-radius:var(--r);padding:10px;margin:-2px 0;':''}">
+      <div class="tl-dot" style="background:${dotColor}"></div>
+      <div class="tl-date" style="width:110px">${dayName}</div>
+      <div class="tl-text">${detail}</div>
+    </div>`);
+  }
+
+  document.getElementById('week-detail-content').innerHTML = `
+    <div class="box box-${phase==='Base'?'green':phase==='Build'?'yellow':phase==='Sharpen'?'orange':'orange'}" style="margin-bottom:1rem">
+      <strong>${phase} phase</strong> · ${getPhaseDesc(phase)}
+    </div>
+    <div class="tl">${days.join('')}</div>
+  `;
+
+  // Swipe support
+  setupSwipe(document.getElementById('week-swipe'));
+}
+
+function getPhaseDesc(phase) {
+  const desc = {
+    'Base': 'Focus on aerobic base, long Z2 rides and building consistency.',
+    'Build': 'Adding threshold intervals and climbing-specific work.',
+    'Sharpen': 'Race simulation efforts and dialling in your pacing strategy.',
+    'Taper': 'Reducing volume, keeping intensity. Trust your training.',
+    'Post-race': 'Recovery and reflection. Well done!'
+  };
+  return desc[phase] || '';
+}
+
+function setupSwipe(el) {
+  if (!el) return;
+  let startX = 0;
+  el.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive:true });
+  el.addEventListener('touchend', e => {
+    const diff = startX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) weekNav(diff > 0 ? 1 : -1);
+  }, { passive:true });
+}
+
+// ── RIDE DETAIL ──
+async function openRide(activityId) {
+  document.getElementById('ride-modal').style.display = 'flex';
+  document.getElementById('modal-stats').innerHTML = '<p style="color:var(--mist);font-size:13px">Loading...</p>';
+
+  // Clear previous map
+  if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+  document.getElementById('route-map').innerHTML = '';
+  document.getElementById('elev-section').style.display = 'none';
+  document.getElementById('hr-section').style.display = 'none';
+  document.getElementById('segments-section').style.display = 'none';
+  document.getElementById('streams-section').style.display = 'none';
+
+  try {
+    const params = new URLSearchParams({
+      access_token: userProfile.strava_access_token,
+      refresh_token: userProfile.strava_refresh_token || '',
+      mode: 'activity',
+      activity_id: activityId
+    });
+
+    const [actRes, streamRes] = await Promise.all([
+      fetch('/api/strava?' + params),
+      fetch('/api/strava?' + new URLSearchParams({ ...Object.fromEntries(params), mode: 'streams' }))
+    ]);
+
+    const act = await actRes.json();
+    const streams = await streamRes.json();
+
+    // Header
+    document.getElementById('modal-title').textContent = act.name || 'Ride';
+    document.getElementById('modal-date').textContent = act.start_date_local
+      ? new Date(act.start_date_local).toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long',year:'numeric'})
+      : '';
+
+    // Stats
+    const km = act.distance ? (act.distance/1000).toFixed(1) : '—';
+    const elev = act.total_elevation_gain ? Math.round(act.total_elevation_gain)+'m' : '—';
+    const mins = act.moving_time ? Math.round(act.moving_time/60) : 0;
+    const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
+    const avgHR = act.average_heartrate ? Math.round(act.average_heartrate)+' bpm' : '—';
+    const maxHR = act.max_heartrate ? Math.round(act.max_heartrate)+' bpm' : '—';
+    const avgWatts = act.average_watts ? Math.round(act.average_watts)+'W' : '—';
+    const prs = act.pr_count || 0;
+
+    document.getElementById('modal-stats').innerHTML = [
+      { val: km+' km', lbl: 'Distance' },
+      { val: duration, lbl: 'Moving time' },
+      { val: elev, lbl: 'Elevation' },
+      { val: avgHR, lbl: 'Avg HR' },
+      { val: maxHR, lbl: 'Max HR' },
+      { val: avgWatts, lbl: 'Avg power' },
+      { val: prs > 0 ? prs+' PRs' : '—', lbl: 'PRs' },
+      { val: act.suffer_score || '—', lbl: 'Suffer score' },
+    ].map(s => `<div class="modal-stat"><div class="val" style="font-size:16px">${s.val}</div><div class="lbl">${s.lbl}</div></div>`).join('');
+
+    // Route map using Leaflet + Strava polyline
+    if (act.map?.summary_polyline) {
+      leafletMap = L.map('route-map', { zoomControl:false, attributionControl:false });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution:'© OpenStreetMap'
+      }).addTo(leafletMap);
+      const decoded = decodePolyline(act.map.summary_polyline);
+      const polyline = L.polyline(decoded, { color: '#FC4C02', weight: 3 }).addTo(leafletMap);
+      leafletMap.fitBounds(polyline.getBounds(), { padding: [10,10] });
+      L.control.attribution({ prefix:false }).addTo(leafletMap);
+    } else {
+      document.getElementById('route-map').innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--mist);font-size:13px">No route data available</div>';
+    }
+
+    // Elevation profile from streams
+    if (streams.altitude?.data) {
+      document.getElementById('elev-section').style.display = 'block';
+      drawElevation(streams.altitude.data);
+    }
+
+    // HR zones from streams
+    if (streams.heartrate?.data && userProfile) {
+      const hrData = streams.heartrate.data;
+      const maxHRest = userProfile.ftp ? Math.round(userProfile.ftp/1.22) : 176;
+      const zones = [
+        { name:'Z1', color:'#4CAF7D', max: maxHRest*0.60 },
+        { name:'Z2', color:'#2D9B6A', max: maxHRest*0.72 },
+        { name:'Z3', color:'#E8C30A', max: maxHRest*0.83 },
+        { name:'Z4', color:'#E8A20A', max: maxHRest*0.95 },
+        { name:'Z5+', color:'#E84040', max: 999 }
+      ];
+      const counts = [0,0,0,0,0];
+      hrData.forEach(hr => {
+        for (let i=0;i<zones.length;i++) { if(hr<=zones[i].max){counts[i]++;break;} }
+      });
+      const total = hrData.length || 1;
+      document.getElementById('elev-section').style.display = 'block';
+      document.getElementById('hr-section').style.display = 'block';
+      document.getElementById('hr-zones-bar').innerHTML = zones.map((z,i) =>
+        `<div style="flex:${counts[i]};background:${z.color};min-width:${counts[i]>0?'2px':'0'}"></div>`
+      ).join('');
+      document.getElementById('hr-zones-legend').innerHTML = zones.map((z,i) =>
+        `<span style="color:${z.color}">${z.name}: ${Math.round(counts[i]/total*100)}%</span>`
+      ).join(' · ');
+    }
+
+    // Segments
+    if (act.segment_efforts?.length) {
+      document.getElementById('segments-section').style.display = 'block';
+      const segs = act.segment_efforts.slice(0,10);
+      document.getElementById('segments-list').innerHTML = segs.map(s => {
+        const t = s.moving_time;
+        const time = t>=60?Math.floor(t/60)+'m '+(t%60)+'s':t+'s';
+        const isPR = s.pr_rank === 1;
+        const isTop = s.kom_rank === 1;
+        return `<div class="segment-row">
+          <div class="seg-name">${s.name}</div>
+          <div class="seg-time">${time}</div>
+          ${isPR?'<div class="seg-pr">🏆 PR</div>':isTop?'<div class="seg-pr">👑 KOM</div>':''}
+        </div>`;
+      }).join('');
+    }
+
+    // Streams stats (speed, cadence, power, temp)
+    const streamStats = [];
+    if (streams.velocity_smooth?.data) {
+      const speeds = streams.velocity_smooth.data.filter(v=>v>0);
+      const avg = speeds.reduce((a,b)=>a+b,0)/speeds.length;
+      const max = Math.max(...speeds);
+      streamStats.push({ val: (avg*3.6).toFixed(1)+' km/h', lbl: 'Avg speed' });
+      streamStats.push({ val: (max*3.6).toFixed(1)+' km/h', lbl: 'Max speed' });
+    }
+    if (streams.cadence?.data) {
+      const cads = streams.cadence.data.filter(c=>c>0);
+      streamStats.push({ val: Math.round(cads.reduce((a,b)=>a+b,0)/cads.length)+' rpm', lbl: 'Avg cadence' });
+    }
+    if (streams.watts?.data) {
+      const watts = streams.watts.data.filter(w=>w>0);
+      streamStats.push({ val: Math.round(watts.reduce((a,b)=>a+b,0)/watts.length)+'W', lbl: 'Avg power' });
+      streamStats.push({ val: Math.round(Math.max(...watts))+'W', lbl: 'Max power' });
+    }
+    if (streams.temp?.data) {
+      const temps = streams.temp.data;
+      streamStats.push({ val: Math.round(temps.reduce((a,b)=>a+b,0)/temps.length)+'°C', lbl: 'Avg temp' });
+    }
+    if (streamStats.length) {
+      document.getElementById('streams-section').style.display = 'block';
+      document.getElementById('streams-stats').innerHTML = streamStats.map(s =>
+        `<div class="modal-stat"><div class="val" style="font-size:16px">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
+      ).join('');
+    }
+
+  } catch(e) {
+    document.getElementById('modal-stats').innerHTML = `<p style="color:#FF8585;font-size:13px">Error loading ride: ${e.message}</p>`;
+  }
+}
+
+function drawElevation(altData) {
+  const canvas = document.getElementById('elev-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * window.devicePixelRatio;
+  canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  const min = Math.min(...altData), max = Math.max(...altData);
+  const range = max - min || 1;
+  ctx.clearRect(0,0,w,h);
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  altData.forEach((alt, i) => {
+    const x = (i / (altData.length-1)) * w;
+    const y = h - ((alt - min) / range) * (h * 0.85);
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0, 'rgba(232,80,10,0.8)');
+  grad.addColorStop(1, 'rgba(232,80,10,0.1)');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.strokeStyle = '#E8500A';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  altData.forEach((alt, i) => {
+    const x = (i / (altData.length-1)) * w;
+    const y = h - ((alt - min) / range) * (h * 0.85);
+    i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function decodePolyline(encoded) {
+  const points = [];
+  let index = 0, lat = 0, lng = 0;
+  while (index < encoded.length) {
+    let b, shift = 0, result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { b = encoded.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    points.push([lat/1e5, lng/1e5]);
+  }
+  return points;
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('ride-modal')) {
+    document.getElementById('ride-modal').style.display = 'none';
+    if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+  }
+}
+
+// Override show() to init calendar
+const _show = show;
+function show(id, btn) {
+  _show(id, btn);
+  if (id === 'calendar') {
+    calStartDate = new Date();
+    renderCalendar();
+    document.getElementById('cal-month-view').style.display = 'block';
+    document.getElementById('cal-week-view').style.display = 'none';
+  }
+}
+
+// Update renderRides to make rides clickable
+function renderRides(rides) {
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0,20);
+  if (!cycling.length) return;
+  const list = document.getElementById('rides-list');
+  list.innerHTML = cycling.map(r => {
+    const km = (r.distance/1000).toFixed(1);
+    const mins = Math.round(r.moving_time/60);
+    const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
+    const date = new Date(r.start_date_local).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
+    const isIndoor = r.distance === 0;
+    const isLong = r.distance > 80000;
+    return `<div class="ride-row" onclick="openRide(${r.id})" style="cursor:pointer">
+      <div class="rdot" style="background:${isIndoor?'var(--mist)':isLong?'var(--orange)':'var(--green)'}"></div>
+      <div class="rinfo">
+        <div class="rname">${r.name}${isIndoor?'<span class="tag to">indoor</span>':''}${isLong?'<span class="tag tg">long</span>':''}</div>
+        <div class="rmeta">${date}${isIndoor?' · indoor':' · '+km+' km · '+Math.round(r.total_elevation_gain)+'m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''} <span style="color:var(--orange);font-size:10px">tap for details →</span></div>
+      </div>
+      <div class="rstat">
+        <div class="big">${isIndoor?mins+' min':duration}</div>
+        <div class="sm">${r.average_heartrate?'avg '+Math.round(r.average_heartrate)+' bpm':''}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const note = document.getElementById('rides-note');
+  note.style.display = 'block';
+  note.innerHTML = '<strong>Tap any ride</strong> for full details — elevation profile, HR zones, segments, speed, cadence, power and route map.';
+
+  // Build enhanced coach data from last 4 weeks
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const recent = cycling.filter(r => new Date(r.start_date_local) > fourWeeksAgo);
+  
+  liveRides = buildCoachData(cycling, recent);
+}
+
+function buildCoachData(allRides, recent) {
+  const outdoor = recent.filter(r => r.distance > 0);
+  const totalDist = outdoor.reduce((s,r)=>s+r.distance,0);
+  const totalElev = outdoor.reduce((s,r)=>s+r.total_elevation_gain,0);
+  const totalTime = outdoor.reduce((s,r)=>s+r.moving_time,0);
+  const avgHRrides = outdoor.filter(r=>r.average_heartrate);
+  const avgHR = avgHRrides.length ? Math.round(avgHRrides.reduce((s,r)=>s+r.average_heartrate,0)/avgHRrides.length) : 0;
+  const maxHRall = Math.max(...outdoor.filter(r=>r.max_heartrate).map(r=>r.max_heartrate), 0);
+  const prCount = outdoor.reduce((s,r)=>s+(r.pr_count||0),0);
+  const longestRide = outdoor.length ? outdoor.reduce((a,b)=>a.distance>b.distance?a:b) : null;
+  const mostClimbing = outdoor.length ? outdoor.reduce((a,b)=>a.total_elevation_gain>b.total_elevation_gain?a:b) : null;
+
+  const recentList = outdoor.slice(0,8).map(r => {
+    const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
+    const km = (r.distance/1000).toFixed(1);
+    const mins = Math.round(r.moving_time/60);
+    return `${date}: ${km}km, ${Math.round(r.total_elevation_gain)}m elev, ${Math.floor(mins/60)}h${mins%60}m${r.average_heartrate?', avg '+Math.round(r.average_heartrate)+'bpm':''}${r.average_watts?', avg '+Math.round(r.average_watts)+'W':''}${r.pr_count>0?', '+r.pr_count+' PRs':''}`;
+  }).join('\n');
+
+  return `
+
+LAST 4 WEEKS STRAVA ANALYSIS:
+Total rides: ${outdoor.length} outdoor sessions
+Total distance: ${(totalDist/1000).toFixed(0)} km
+Total elevation: ${Math.round(totalElev)} m
+Total riding time: ${Math.floor(totalTime/3600)}h ${Math.round((totalTime%3600)/60)}m
+Average HR across rides: ${avgHR || 'unknown'} bpm
+Max HR recorded: ${maxHRall || 'unknown'} bpm
+Total PRs set: ${prCount}
+${longestRide ? `Longest ride: ${(longestRide.distance/1000).toFixed(0)}km, ${Math.round(longestRide.total_elevation_gain)}m elev` : ''}
+${mostClimbing ? `Most climbing: ${Math.round(mostClimbing.total_elevation_gain)}m in ${(mostClimbing.distance/1000).toFixed(0)}km` : ''}
+
+RECENT RIDES (newest first):
+${recentList}`;
+}
 </script>
+<!-- RIDE DETAIL MODAL -->
+<div id="ride-modal" class="modal-overlay" style="display:none" onclick="closeModal(event)">
+  <div class="modal" id="ride-modal-content">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title" id="modal-title">Ride details</div>
+        <div style="font-size:12px;color:var(--mist);margin-top:3px" id="modal-date"></div>
+      </div>
+      <button class="modal-close" onclick="document.getElementById('ride-modal').style.display='none'">×</button>
+    </div>
+    <div class="modal-stats" id="modal-stats"></div>
+    <div id="route-map"></div>
+    <div id="elev-section" style="display:none">
+      <p class="slabel">Elevation profile</p>
+      <canvas id="elev-canvas" style="width:100%;height:80px;border-radius:var(--r);background:var(--gravel)"></canvas>
+    </div>
+    <div id="hr-section" style="display:none;margin-top:1rem">
+      <p class="slabel">Heart rate zones</p>
+      <div class="hr-zones-bar" id="hr-zones-bar"></div>
+      <div id="hr-zones-legend" style="display:flex;flex-wrap:wrap;gap:8px;font-size:11px;color:var(--mist);margin-top:4px"></div>
+    </div>
+    <div id="segments-section" style="display:none;margin-top:1rem">
+      <p class="slabel">Segments</p>
+      <div id="segments-list"></div>
+    </div>
+    <div id="streams-section" style="display:none;margin-top:1rem">
+      <p class="slabel">Speed · Cadence · Power · Temperature</p>
+      <div id="streams-stats" class="modal-stats"></div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
