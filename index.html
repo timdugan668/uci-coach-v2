@@ -1200,39 +1200,6 @@ async function syncStrava() {
   }
 }
 
-function renderRides(rides) {
-  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0,10);
-  if (!cycling.length) return;
-  const list = document.getElementById('rides-list');
-  list.innerHTML = cycling.map(r => {
-    const km = (r.distance/1000).toFixed(1);
-    const mins = Math.round(r.moving_time/60);
-    const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
-    const date = new Date(r.start_date_local).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
-    const isIndoor = r.distance === 0;
-    const isLong = r.distance > 80000;
-    return `<div class="ride-row">
-      <div class="rdot" style="background:${isIndoor?'var(--mist)':isLong?'var(--orange)':'var(--green)'}"></div>
-      <div class="rinfo">
-        <div class="rname">${r.name}${isIndoor?'<span class="tag to">indoor</span>':''}${isLong?'<span class="tag tg">long</span>':''}</div>
-        <div class="rmeta">${date}${isIndoor?' · indoor':' · '+km+' km · '+Math.round(r.total_elevation_gain)+'m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''}</div>
-      </div>
-      <div class="rstat">
-        <div class="big">${isIndoor?mins+' min':duration}</div>
-        <div class="sm">${r.average_heartrate?'avg '+Math.round(r.average_heartrate)+' bpm':''}</div>
-      </div>
-    </div>`;
-  }).join('');
-  const note = document.getElementById('rides-note');
-  note.style.display = 'block';
-  note.innerHTML = '<strong>Coach tip:</strong> Tell the coach how any session felt and I\'ll adjust your plan based on how you\'re recovering.';
-  liveRides = '\n\nLATEST RIDES:\n' + cycling.slice(0,5).map(r => {
-    const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
-    const isIndoor = r.distance === 0;
-    if (isIndoor) return `${date}: Indoor ${Math.round(r.moving_time/60)}min`;
-    return `${date}: ${(r.distance/1000).toFixed(1)}km ${Math.round(r.total_elevation_gain)}m ${Math.round(r.moving_time/60)}min${r.average_heartrate?' avg '+Math.round(r.average_heartrate)+'bpm':''}${r.pr_count>0?' '+r.pr_count+' PRs':''}`;
-  }).join('\n');
-}
 
 function updateDashboard(rides) {
   const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride');
@@ -1351,18 +1318,51 @@ async function send() {
   inp.disabled = true;
   const t = addTyping();
   chatHistory.push({ role:'user', content:msg });
+  // Cap history at 20 messages to prevent unbounded memory growth
+  if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
   try {
     const r = await fetch('/api/chat', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, system: buildSystemPrompt()+liveRides, messages:chatHistory })
+      body: JSON.stringify({ model:'claude-sonnet-4-6', max_tokens:1000, stream:true, system: buildSystemPrompt()+liveRides, messages:chatHistory })
     });
-    const d = await r.json();
+
+    if (!r.ok) { const e = await r.json(); throw new Error(e.error||'API error'); }
+
+    // Streaming response
     t.remove();
-    if (d.error) throw new Error(d.error.message||JSON.stringify(d.error));
-    const reply = d.content.map(b=>b.text||'').join('');
-    chatHistory.push({ role:'assistant', content:reply });
-    addMsg('coach', reply);
+    const msgEl = addMsg('coach', '');
+    const bubbleEl = msgEl.querySelector('.mbub');
+    const reader = r.body.getReader();
+    const decoder = new TextDecoder();
+    let fullReply = '';
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') break;
+        try {
+          const parsed = JSON.parse(data);
+          const delta = parsed.delta?.text || '';
+          if (delta) {
+            fullReply += delta;
+            bubbleEl.innerHTML = fullReply.replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+            // Auto scroll
+            const msgs = document.getElementById('chat-msgs');
+            msgs.scrollTop = msgs.scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+
+    chatHistory.push({ role:'assistant', content:fullReply });
     window.CURRENT_RIDE_CONTEXT = null; // clear after successful send
   } catch(e) {
     t.remove();
@@ -1981,7 +1981,6 @@ function closeModal(e) {
 
 // Calendar init handled in show()
 
-// Update renderRides to make rides clickable
 function renderRides(rides) {
   const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0,20);
   if (!cycling.length) return;
