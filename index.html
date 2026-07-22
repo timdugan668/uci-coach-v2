@@ -1202,14 +1202,14 @@ async function syncStrava() {
 
 
 function updateDashboard(rides) {
-  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride');
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride' || r.type === 'VirtualRide' || r.sport_type === 'VirtualRide');
   const outdoor = cycling.filter(r => r.distance > 50000);
   const weight = userProfile?.weight || 80;
 
   // Last ride
   if (cycling.length) {
     const last = cycling[0];
-    const isIndoor = last.distance === 0;
+    const isIndoor = last.distance === 0 || last.trainer === true || last.type === 'VirtualRide' || last.sport_type === 'VirtualRide';
     const mins = Math.round(last.moving_time/60);
     const h = Math.floor(mins/60); const m = mins%60;
     const date = new Date(last.start_date_local).toLocaleDateString('en-AU',{day:'numeric',month:'short'});
@@ -1801,7 +1801,15 @@ async function openRide(activityId) {
       const temps = streams.temp.data;
       streamStats.push({ val: Math.round(temps.reduce((a,b)=>a+b,0)/temps.length)+'°C', lbl: 'Avg temp' });
     }
-    if (streamStats.length) {
+    // Always show streams section if we have any data (especially for indoor/roller rides)
+    if (streamStats.length || act.average_cadence || act.average_watts) {
+      // Add summary stats if streams not available but activity has them
+      if (!streamStats.length) {
+        if (act.average_speed) streamStats.push({ val: (act.average_speed*3.6).toFixed(1)+' km/h', lbl: 'Avg speed' });
+        if (act.average_cadence) streamStats.push({ val: Math.round(act.average_cadence)+' rpm', lbl: 'Avg cadence' });
+        if (act.average_watts) streamStats.push({ val: Math.round(act.average_watts)+'W', lbl: 'Avg power' });
+        if (act.weighted_average_watts) streamStats.push({ val: Math.round(act.weighted_average_watts)+'W', lbl: 'Norm power' });
+      }
       document.getElementById('streams-section').style.display = 'block';
       document.getElementById('streams-stats').innerHTML = streamStats.map(s =>
         `<div class="modal-stat"><div class="val" style="font-size:16px">${s.val}</div><div class="lbl">${s.lbl}</div></div>`
@@ -1982,7 +1990,7 @@ function closeModal(e) {
 // Calendar init handled in show()
 
 function renderRides(rides) {
-  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride').slice(0,20);
+  const cycling = rides.filter(r => r.type === 'Ride' || r.sport_type === 'Ride' || r.type === 'VirtualRide' || r.sport_type === 'VirtualRide').slice(0,20);
   if (!cycling.length) return;
   const list = document.getElementById('rides-list');
   list.innerHTML = cycling.map(r => {
@@ -1990,13 +1998,13 @@ function renderRides(rides) {
     const mins = Math.round(r.moving_time/60);
     const duration = mins >= 60 ? Math.floor(mins/60)+'h '+(mins%60)+'m' : mins+'m';
     const date = new Date(r.start_date_local).toLocaleDateString('en-AU',{weekday:'short',day:'numeric',month:'short'});
-    const isIndoor = r.distance === 0;
+    const isIndoor = r.distance === 0 || r.trainer === true || r.type === 'VirtualRide' || r.sport_type === 'VirtualRide';
     const isLong = r.distance > 80000;
     return `<div class="ride-row" onclick="openRide(${r.id})" style="cursor:pointer">
       <div class="rdot" style="background:${isIndoor?'var(--mist)':isLong?'var(--orange)':'var(--green)'}"></div>
       <div class="rinfo">
         <div class="rname">${r.name}${isIndoor?'<span class="tag to">indoor</span>':''}${isLong?'<span class="tag tg">long</span>':''}</div>
-        <div class="rmeta">${date}${isIndoor?' · indoor':' · '+km+' km · '+Math.round(r.total_elevation_gain)+'m'}${r.pr_count>0?' · '+r.pr_count+' PRs':''} <span style="color:var(--orange);font-size:10px">tap for details →</span></div>
+        <div class="rmeta">${date}${isIndoor?' · indoor roller':' · '+km+' km · '+Math.round(r.total_elevation_gain)+'m'}${r.average_heartrate?' · avg '+Math.round(r.average_heartrate)+' bpm':''}${r.pr_count>0?' · '+r.pr_count+' PRs':''} <span style="color:var(--orange);font-size:10px">tap for details →</span></div>
       </div>
       <div class="rstat">
         <div class="big">${isIndoor?mins+' min':duration}</div>
@@ -2018,6 +2026,7 @@ function renderRides(rides) {
 
 function buildCoachData(allRides, recent) {
   const outdoor = recent.filter(r => r.distance > 0);
+  const indoor = recent.filter(r => r.distance === 0 || r.trainer === true || r.type === 'VirtualRide');
   const totalDist = outdoor.reduce((s,r)=>s+r.distance,0);
   const totalElev = outdoor.reduce((s,r)=>s+r.total_elevation_gain,0);
   const totalTime = outdoor.reduce((s,r)=>s+r.moving_time,0);
@@ -2027,6 +2036,13 @@ function buildCoachData(allRides, recent) {
   const prCount = outdoor.reduce((s,r)=>s+(r.pr_count||0),0);
   const longestRide = outdoor.length ? outdoor.reduce((a,b)=>a.distance>b.distance?a:b) : null;
   const mostClimbing = outdoor.length ? outdoor.reduce((a,b)=>a.total_elevation_gain>b.total_elevation_gain?a:b) : null;
+
+  const indoorSummary = indoor.length ? `Indoor/roller sessions: ${indoor.length} in last 4 weeks. ` +
+    indoor.slice(0,3).map(r => {
+      const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
+      const mins = Math.round(r.moving_time/60);
+      return `${date}: ${mins}min${r.average_heartrate?' avg '+Math.round(r.average_heartrate)+'bpm':''}${r.average_cadence?' cadence '+Math.round(r.average_cadence)+'rpm':''}${r.average_watts?' avg '+Math.round(r.average_watts)+'W':''}`;
+    }).join(', ') : '';
 
   const recentList = outdoor.slice(0,8).map(r => {
     const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
@@ -2047,6 +2063,7 @@ Max HR recorded: ${maxHRall || 'unknown'} bpm
 Total PRs set: ${prCount}
 ${longestRide ? `Longest ride: ${(longestRide.distance/1000).toFixed(0)}km, ${Math.round(longestRide.total_elevation_gain)}m elev` : ''}
 ${mostClimbing ? `Most climbing: ${Math.round(mostClimbing.total_elevation_gain)}m in ${(mostClimbing.distance/1000).toFixed(0)}km` : ''}
+${indoorSummary}
 
 RECENT RIDES (newest first):
 ${recentList}`;
