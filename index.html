@@ -906,6 +906,7 @@ async function completeOnboarding(stravaData) {
 
   const profile = {
     name: document.getElementById('ob-name').value.trim(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     age: parseInt(document.getElementById('ob-age').value) || null,
     weight: parseFloat(document.getElementById('ob-weight').value) || null,
     experience: document.getElementById('ob-experience').value,
@@ -1129,6 +1130,7 @@ function loadProfileTab() {
 async function saveProfileEdits() {
   const updates = {
     name: document.getElementById('p-name').value.trim(),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     age: parseInt(document.getElementById('p-age').value) || null,
     weight: parseFloat(document.getElementById('p-weight').value) || null,
     ftp: parseInt(document.getElementById('p-ftp').value) || null,
@@ -1276,6 +1278,11 @@ function buildSystemPrompt() {
   const goalLabels = { uci_qualifier:'UCI Gran Fondo Worlds qualifier', gran_fondo:'Gran Fondo completion', fitness:'general fitness', century:'century ride (100km+)' };
   const days = p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/86400000) : null;
 
+  // Detect user's local timezone dynamically
+  const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const userUTCOffset = -(new Date().getTimezoneOffset()/60);
+  const userUTCOffsetStr = (userUTCOffset >= 0 ? '+' : '') + userUTCOffset;
+
   const rideContext = window.CURRENT_RIDE_CONTEXT ? ("\n\n" + window.CURRENT_RIDE_CONTEXT) : "";
 
   return `You are VAMIQ, an expert AI cycling coach. You adapt to every athlete's individual goals and data.
@@ -1298,12 +1305,24 @@ GOAL SUMMARY:
 - Current training phase: ${p.goal_date ? getPhase(new Date()) : 'unknown'}
 - Weeks to event: ${p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/(7*86400000)) : 'unknown'}
 
+ATHLETE'S WEEKLY SCHEDULE (timezone: \${userTimezone}):
+- Monday: Rest
+- Tuesday: Z2 endurance (rollers/indoors)
+- Wednesday: Threshold intervals (rollers/indoors)
+- Thursday: Easy recovery ride outdoors
+- Friday: Social/group ride outdoors
+- Saturday: Fatigue climbing or intervals outdoors
+- Sunday: Long ride outdoors (the key weekly session)
+Note: All ride dates are in the athlete's local time (\${userTimezone}). Do not adjust.
+
 WEEK-BY-WEEK ADAPTATION:
 - 8+ weeks out: Base phase — long Z2, 3x12min threshold, fatigue climbing 3x8min
 - 4-8 weeks out: Build phase — increase to 4x12min threshold, 4x8min fatigue climbs, longer long rides
 - 2-3 weeks out: Sharpen phase — reduce volume, maintain intensity, race simulations, full nutrition practice
 - Race week: Taper — 45min easy rides, short race-pace reminders, rest and prepare
 You MUST prescribe sessions appropriate to the current phase. Never give base-phase sessions when athlete is 2 weeks from their event.
+
+TIMEZONE NOTE: Athlete timezone is \${userTimezone} (UTC offset \${userUTCOffset}). Strava activity dates provided use start_date_local which is already in the athlete's local time. Do NOT adjust dates — treat all dates and days as-is in the athlete's local time.
 
 IMPORTANT: The athlete's goal description above is the most important context. Read it carefully and tailor ALL coaching advice specifically to what they have described. If they mention a specific event, date, qualification standard or performance target, focus your coaching on that. Be specific, practical and encouraging. Australian casual tone. Concise but actionable.` + rideContext;
 }
@@ -2039,7 +2058,7 @@ function buildCoachData(allRides, recent) {
 
   const indoorSummary = indoor.length ? `Indoor/roller sessions: ${indoor.length} in last 4 weeks. ` +
     indoor.slice(0,3).map(r => {
-      const date = new Date(r.start_date_local).toLocaleDateString('en-AU');
+      const date = new Date(r.start_date_local).toLocaleDateString('en-AU', {weekday:'long', day:'numeric', month:'short'});
       const mins = Math.round(r.moving_time/60);
       return `${date}: ${mins}min${r.average_heartrate?' avg '+Math.round(r.average_heartrate)+'bpm':''}${r.average_cadence?' cadence '+Math.round(r.average_cadence)+'rpm':''}${r.average_watts?' avg '+Math.round(r.average_watts)+'W':''}`;
     }).join(', ') : '';
@@ -2051,9 +2070,10 @@ function buildCoachData(allRides, recent) {
     return `${date}: ${km}km, ${Math.round(r.total_elevation_gain)}m elev, ${Math.floor(mins/60)}h${mins%60}m${r.average_heartrate?', avg '+Math.round(r.average_heartrate)+'bpm':''}${r.average_watts?', avg '+Math.round(r.average_watts)+'W':''}${r.pr_count>0?', '+r.pr_count+' PRs':''}`;
   }).join('\n');
 
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return `
 
-LAST 4 WEEKS STRAVA ANALYSIS:
+LAST 4 WEEKS STRAVA ANALYSIS (all dates in athlete local time: \${tz}):
 Total rides: ${outdoor.length} outdoor sessions
 Total distance: ${(totalDist/1000).toFixed(0)} km
 Total elevation: ${Math.round(totalElev)} m
