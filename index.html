@@ -1310,7 +1310,6 @@ function buildSystemPrompt() {
   const days = p.goal_date ? Math.ceil((new Date(p.goal_date)-new Date())/86400000) : null;
 
   const rideContext = window.CURRENT_RIDE_CONTEXT ? ("\n\n" + window.CURRENT_RIDE_CONTEXT) : "";
-  window.CURRENT_RIDE_CONTEXT = null; // clear after use
 
   return `You are VAMIQ, an expert AI cycling coach. You adapt to every athlete's individual goals and data.
 
@@ -1364,6 +1363,7 @@ async function send() {
     const reply = d.content.map(b=>b.text||'').join('');
     chatHistory.push({ role:'assistant', content:reply });
     addMsg('coach', reply);
+    window.CURRENT_RIDE_CONTEXT = null; // clear after successful send
   } catch(e) {
     t.remove();
     addMsg('coach', '⚠️ '+e.message);
